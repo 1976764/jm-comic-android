@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>JM · 宣传视频</title>
+    <title>JM · 宣传简介</title>
     <style>
         /* ----- 全局重置 & 基础样式 ----- */
         * {
@@ -42,7 +42,7 @@
             }
         }
 
-        /* ----- 所有卡片共用定位 & 动画（修复重叠） ----- */
+        /* ----- 卡片动画（已修复重叠） ----- */
         .slide {
             position: absolute;
             inset: 0;
@@ -57,7 +57,6 @@
             will-change: transform, opacity;
         }
 
-        /* 6 张卡片，依次延迟 3s */
         .slide:nth-child(1) { animation-delay: 0s; }
         .slide:nth-child(2) { animation-delay: 3s; }
         .slide:nth-child(3) { animation-delay: 6s; }
@@ -65,10 +64,6 @@
         .slide:nth-child(5) { animation-delay: 12s; }
         .slide:nth-child(6) { animation-delay: 15s; }
 
-        /*
-          ✅ 修复关键：每个卡片只在 0% ~ 15% 时间区间内可见（约 2.7 秒），
-          之后 15% ~ 100% 完全隐藏，确保相邻卡片显示时段不重叠。
-        */
         @keyframes fadeSlide {
             0%   { opacity: 0; transform: scale(0.96) translateY(18px); }
             5%   { opacity: 1; transform: scale(1) translateY(0); }
@@ -77,7 +72,7 @@
             100% { opacity: 0; transform: scale(0.96) translateY(-18px); }
         }
 
-        /* ----- 内容排版（保持不变） ----- */
+        /* ----- 内容排版 ----- */
         .slide .badge {
             display: inline-block;
             padding: 0.35rem 1.2rem;
@@ -202,7 +197,7 @@
             .slide .tech-tags span { font-size: 0.7rem; padding: 0.2rem 0.7rem; }
         }
 
-        /* ----- 进度条（同步） ----- */
+        /* ----- 进度条 ----- */
         .progress-bar {
             position: absolute;
             bottom: 0;
@@ -220,7 +215,7 @@
             100% { width: 100%; }
         }
 
-        /* ----- 底部圆点指示器（同步） ----- */
+        /* ----- 圆点指示器 ----- */
         .dots {
             position: absolute;
             bottom: 1.5rem;
@@ -284,36 +279,36 @@
 
 <div class="video-container">
 
-    <!-- ===== 卡片 1 ===== -->
+    <!-- ===== 卡片 1：项目名称 & 定位 ===== -->
     <div class="slide">
         <span class="badge">🚀 开源项目</span>
         <h1>JM</h1>
         <h2 style="font-size: clamp(1.6rem,4vw,2.8rem); background: linear-gradient(135deg,#c0d8ff,#8ab4ff); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;">
             Android 漫画阅读客户端
         </h2>
-        <p class="sub">基于 Jetpack Compose + Python 混合架构</p>
+        <p class="sub">基于 Jetpack Compose + Python (jmcomic) 混合架构</p>
         <p class="desc">无广告 · 流畅阅读 · 离线下载</p>
         <div class="tech-tags">
             <span>Kotlin</span><span>Jetpack Compose</span><span>Python</span><span>Chaquopy</span>
         </div>
     </div>
 
-    <!-- ===== 卡片 2 ===== -->
+    <!-- ===== 卡片 2：技术栈（修正：明确 jmcomic 为第三方库） ===== -->
     <div class="slide">
         <span class="badge">⚙️ 技术栈</span>
-        <h2 style="font-size: clamp(2rem,5vw,3.4rem);">全栈自研</h2>
+        <h2 style="font-size: clamp(2rem,5vw,3.4rem);">混合架构</h2>
         <div class="feature-grid" style="grid-template-columns: repeat(auto-fit,minmax(150px,1fr));">
             <div class="item"><span class="emoji">📱</span><span class="label">UI 框架</span><span class="detail">Jetpack Compose · Material 3</span></div>
             <div class="item"><span class="emoji">🧩</span><span class="label">架构</span><span class="detail">MVVM + StateFlow</span></div>
             <div class="item"><span class="emoji">🐍</span><span class="label">Python 桥接</span><span class="detail">Chaquopy 17.0.0</span></div>
-            <div class="item"><span class="emoji">📦</span><span class="label">数据源</span><span class="detail">jmcomic (Python)</span></div>
+            <div class="item"><span class="emoji">📦</span><span class="label">数据源</span><span class="detail">jmcomic (开源 Python 库)</span></div>
             <div class="item"><span class="emoji">🖼️</span><span class="label">图片加载</span><span class="detail">Coil 2.7.0</span></div>
             <div class="item"><span class="emoji">🧭</span><span class="label">导航</span><span class="detail">Navigation Compose</span></div>
         </div>
-        <p class="desc" style="margin-top:1.2rem;">Kotlin 负责 UI 与业务逻辑 · Python 负责网络与数据处理</p>
+        <p class="desc" style="margin-top:1.2rem;">Kotlin 负责 UI 与业务逻辑 · Python 调用 jmcomic 处理网络与数据</p>
     </div>
 
-    <!-- ===== 卡片 3 ===== -->
+    <!-- ===== 卡片 3：核心功能 ===== -->
     <div class="slide">
         <span class="badge">📖 核心功能</span>
         <h2 style="font-size: clamp(1.8rem,4.5vw,3rem);">发现与浏览</h2>
@@ -326,7 +321,7 @@
         <p class="desc" style="margin-top:0.8rem;">LazyColumn 替代 Column+verticalScroll，滑动流畅</p>
     </div>
 
-    <!-- ===== 卡片 4 ===== -->
+    <!-- ===== 卡片 4：阅读器 ===== -->
     <div class="slide">
         <span class="badge">📖 阅读体验</span>
         <h2 style="font-size: clamp(1.8rem,4.5vw,3rem);">沉浸式阅读器</h2>
@@ -342,7 +337,7 @@
         </div>
     </div>
 
-    <!-- ===== 卡片 5 ===== -->
+    <!-- ===== 卡片 5：用户系统 ===== -->
     <div class="slide">
         <span class="badge">👤 用户系统</span>
         <h2 style="font-size: clamp(1.8rem,4.5vw,3rem);">登录 · 收藏 · 下载</h2>
@@ -355,7 +350,7 @@
         <p class="desc" style="margin-top:0.8rem;">Cookie 三级恢复：进程内 → Cookie 自动验证 → 密码重新登录</p>
     </div>
 
-    <!-- ===== 卡片 6 ===== -->
+    <!-- ===== 卡片 6：架构 & 结语 ===== -->
     <div class="slide">
         <span class="badge">🧬 架构设计</span>
         <h2 style="font-size: clamp(1.8rem,4.5vw,3rem);">分层清晰 · 混合驱动</h2>
@@ -363,10 +358,11 @@
             <div><strong>UI Layer</strong> — Compose (Home / Reader / Profile / Search / Detail)</div>
             <div><strong>ViewModel Layer</strong> — StateFlow 驱动 UI 状态</div>
             <div><strong>Kotlin Data Layer</strong> — PythonService / CacheManager / DownloadManager</div>
-            <div><strong>Python Bridge</strong> — jm_bridge.py · jmcomic 库调用</div>
+            <div><strong>Python Bridge</strong> — jm_bridge.py 调用 jmcomic 库</div>
         </div>
         <p class="desc" style="margin-top:1.2rem; max-width:600px;">
-            ⚡ 本项目仅供学习交流使用 · 无广告 · 纯净体验
+            ⚡ 本项目仅供学习交流使用 · 无广告 · 纯净体验<br />
+            <span style="font-size:0.85rem; opacity:0.7;">jmcomic 为开源第三方库，特此致谢</span>
         </p>
         <div class="tech-tags" style="margin-top:0.6rem;">
             <span>#Android</span><span>#Kotlin</span><span>#Python</span><span>#Compose</span>
