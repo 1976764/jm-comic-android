@@ -169,3 +169,15 @@ App启动 → 检查进程内登录状态
 ---
 
 *本项目仅供学习交流使用。*
+## License
+
+This project is licensed under the PolyForm Noncommercial License 1.0.0.
+
+Commercial use is not permitted without prior written permission
+from the copyright holder.
+
+This project is a third-party client and is not affiliated with,
+endorsed by, or sponsored by the original project or service.
+
+Third-party software, libraries, and assets remain subject to
+their respective licenses.
