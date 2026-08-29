@@ -1,0 +1,41 @@
+# Gradle
+.gradle/
+.gradle-cache/
+build/
+*/build/
+build_v2/
+*/build_v2/
+
+# Kotlin
+.kotlin/
+
+# Android Studio
+.idea/
+*.iml
+
+# Local configuration
+local.properties
+
+# Native build
+.externalNativeBuild/
+.cxx/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Temporary files
+.tmp_*
+.workbuddy/
+
+# Generated APK/AAB
+*.apk
+*.aab
+
+# Signing
+*.jks
+*.keystore
+
+# OS
+.DS_Store
+Thumbs.db

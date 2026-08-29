@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background: transparent;
+            overflow: hidden;
+        }
+        #container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            background: transparent;
+        }
+        model-viewer {
+            width: 100%;
+            height: 100%;
+            --poster-color: transparent;
+            background: transparent;
+            cursor: default;
+        }
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: rgba(255,255,255,0.5);
+            font-family: -apple-system, sans-serif;
+            font-size: 14px;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="loading">加载中...</div>
+        <model-viewer
+            id="mv"
+            src="models/JM.glb"
+            alt="JM 3D Model"
+            auto-rotate
+            rotation-per-second="20deg"
+            disable-zoom
+            interaction-prompt="none"
+            shadow-intensity="0"
+            exposure="1.2"
+            camera-orbit="0deg 95deg 200%">
+        </model-viewer>
+    </div>
+
+    <script type="module" src="model-viewer.min.js"></script>
+    <script type="module">
+        const mv = document.getElementById('mv');
+        const loading = document.getElementById('loading');
+
+        mv.addEventListener('load', function() {
+            // 模型就绪标记：供原生层（AboutModelPreloader.obtain）查询，
+            // 未就绪说明加载中途被打断，需要 reload 重走加载流程
+            window.__modelReady = true;
+            loading.style.display = 'none';
+        });
+
+        mv.addEventListener('error', function() {
+            loading.textContent = '模型加载失败';
+        });
+    </script>
+</body>
+</html>

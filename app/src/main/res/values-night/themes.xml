@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark variant: dark window background so the launch window and any
+         uncovered areas match the system dark mode. -->
+    <style name="Theme.JM" parent="android:Theme.Material.NoActionBar" />
+</resources>
