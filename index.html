@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>JM · 简介</title>
+    <style>
+        /* ----- 全局重置 & 基础样式 ----- */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #0b0e14;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .video-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            max-width: 1400px;
+            max-height: 900px;
+            background: radial-gradient(circle at 20% 30%, #1a1f2a, #0b0e14 80%);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+            overflow: hidden;
+            border-radius: 0;
+        }
+
+        @media (min-width: 1024px) {
+            .video-container {
+                border-radius: 32px;
+                width: 95vw;
+                height: 90vh;
+            }
+        }
+
+        /* ----- 卡片动画（已修复重叠） ----- */
+        .slide {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 2.5rem 2rem;
+            text-align: center;
+            opacity: 0;
+            animation: fadeSlide 18s infinite;
+            will-change: transform, opacity;
+        }
+
+        .slide:nth-child(1) { animation-delay: 0s; }
+        .slide:nth-child(2) { animation-delay: 3s; }
+        .slide:nth-child(3) { animation-delay: 6s; }
+        .slide:nth-child(4) { animation-delay: 9s; }
+        .slide:nth-child(5) { animation-delay: 12s; }
+        .slide:nth-child(6) { animation-delay: 15s; }
+
+        @keyframes fadeSlide {
+            0%   { opacity: 0; transform: scale(0.96) translateY(18px); }
+            5%   { opacity: 1; transform: scale(1) translateY(0); }
+            12%  { opacity: 1; transform: scale(1) translateY(0); }
+            15%  { opacity: 0; transform: scale(0.96) translateY(-18px); }
+            100% { opacity: 0; transform: scale(0.96) translateY(-18px); }
+        }
+
+        /* ----- 内容排版 ----- */
+        .slide .badge {
+            display: inline-block;
+            padding: 0.35rem 1.2rem;
+            border-radius: 40px;
+            background: rgba(255, 255, 255, 0.07);
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            font-size: 0.8rem;
+            font-weight: 500;
+            letter-spacing: 0.08em;
+            color: #a0b4d0;
+            text-transform: uppercase;
+            margin-bottom: 1rem;
+        }
+
+        .slide h1 {
+            font-size: clamp(2.6rem, 10vw, 5.2rem);
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, #f0f6ff 0%, #7aa9ff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.25rem;
+            line-height: 1.1;
+        }
+
+        .slide h2 {
+            font-size: clamp(1.8rem, 6vw, 3.6rem);
+            font-weight: 600;
+            color: #e8edf5;
+            letter-spacing: -0.01em;
+            margin-bottom: 0.5rem;
+        }
+
+        .slide .sub {
+            font-size: clamp(1rem, 2.2vw, 1.5rem);
+            color: #9aafcf;
+            font-weight: 400;
+            max-width: 700px;
+            line-height: 1.6;
+            margin-bottom: 0.5rem;
+        }
+
+        .slide .desc {
+            font-size: clamp(0.95rem, 1.8vw, 1.25rem);
+            color: #c8d8f0;
+            max-width: 650px;
+            line-height: 1.7;
+            opacity: 0.85;
+            margin-top: 0.5rem;
+        }
+
+        .slide .tech-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.6rem 1rem;
+            justify-content: center;
+            margin-top: 1.2rem;
+        }
+
+        .slide .tech-tags span {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 0.3rem 1rem;
+            border-radius: 30px;
+            font-size: 0.85rem;
+            color: #b8cef0;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(2px);
+        }
+
+        .slide .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 1rem 1.5rem;
+            width: 100%;
+            max-width: 720px;
+            margin-top: 1.5rem;
+        }
+
+        .slide .feature-grid .item {
+            background: rgba(255, 255, 255, 0.03);
+            padding: 1rem 0.5rem;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            backdrop-filter: blur(2px);
+        }
+
+        .slide .feature-grid .item .emoji {
+            font-size: 2rem;
+            display: block;
+            margin-bottom: 0.25rem;
+        }
+        .slide .feature-grid .item .label {
+            font-size: 0.9rem;
+            color: #d0def5;
+            font-weight: 500;
+        }
+        .slide .feature-grid .item .detail {
+            font-size: 0.75rem;
+            color: #8da3c5;
+            margin-top: 0.15rem;
+        }
+
+        .slide .arch {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 0.8rem 1.8rem;
+            margin-top: 1.2rem;
+            font-size: 0.95rem;
+            color: #c0d2ec;
+        }
+        .slide .arch strong {
+            color: #e0ecff;
+            font-weight: 600;
+        }
+
+        @media (max-width: 600px) {
+            .slide { padding: 1.5rem 1rem; }
+            .slide .feature-grid { grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+            .slide .tech-tags span { font-size: 0.7rem; padding: 0.2rem 0.7rem; }
+        }
+
+        /* ----- 进度条 ----- */
+        .progress-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #3b82f6, #a78bfa);
+            width: 0%;
+            animation: progress 18s linear infinite;
+            border-radius: 0 4px 4px 0;
+            z-index: 20;
+        }
+
+        @keyframes progress {
+            0%   { width: 0%; }
+            100% { width: 100%; }
+        }
+
+        /* ----- 圆点指示器 ----- */
+        .dots {
+            position: absolute;
+            bottom: 1.5rem;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 0.6rem;
+            z-index: 15;
+        }
+        .dots span {
+            width: 8px;
+            height: 8px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.15);
+            transition: background 0.3s;
+            animation: dotPulse 18s infinite;
+        }
+        .dots span:nth-child(1) { animation-delay: 0s; }
+        .dots span:nth-child(2) { animation-delay: 3s; }
+        .dots span:nth-child(3) { animation-delay: 6s; }
+        .dots span:nth-child(4) { animation-delay: 9s; }
+        .dots span:nth-child(5) { animation-delay: 12s; }
+        .dots span:nth-child(6) { animation-delay: 15s; }
+
+        @keyframes dotPulse {
+            0%, 15%   { background: rgba(255, 255, 255, 0.6); transform: scale(1.2); }
+            20%, 100% { background: rgba(255, 255, 255, 0.15); transform: scale(1); }
+        }
+
+        /* ----- GitHub 角标 ----- */
+        .github-corner {
+            position: absolute;
+            top: 1.2rem;
+            right: 1.5rem;
+            z-index: 30;
+            color: #a0b4d0;
+            font-size: 0.85rem;
+            background: rgba(255,255,255,0.04);
+            padding: 0.3rem 1rem 0.3rem 0.8rem;
+            border-radius: 40px;
+            border: 1px solid rgba(255,255,255,0.06);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            text-decoration: none;
+            transition: 0.2s;
+        }
+        .github-corner:hover {
+            background: rgba(255,255,255,0.1);
+            color: #d0def5;
+        }
+        .github-corner svg {
+            width: 18px;
+            height: 18px;
+            fill: currentColor;
+        }
+    </style>
+</head>
+<body>
+
+<div class="video-container">
+
+    <!-- ===== 卡片 1：项目名称 & 定位 ===== -->
+    <div class="slide">
+        <span class="badge">🚀 开源项目</span>
+        <h1>JM</h1>
+        <h2 style="font-size: clamp(1.6rem,4vw,2.8rem); background: linear-gradient(135deg,#c0d8ff,#8ab4ff); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;">
+            Android 漫画阅读客户端
+        </h2>
+        <p class="sub">基于 Jetpack Compose + Python (jmcomic) 混合架构</p>
+        <p class="desc">无广告 · 流畅阅读 · 离线下载</p>
+        <div class="tech-tags">
+            <span>Kotlin</span><span>Jetpack Compose</span><span>Python</span><span>Chaquopy</span>
+        </div>
+    </div>
+
+    <!-- ===== 卡片 2：技术栈（修正：明确 jmcomic 为第三方库） ===== -->
+    <div class="slide">
+        <span class="badge">⚙️ 技术栈</span>
+        <h2 style="font-size: clamp(2rem,5vw,3.4rem);">混合架构</h2>
+        <div class="feature-grid" style="grid-template-columns: repeat(auto-fit,minmax(150px,1fr));">
+            <div class="item"><span class="emoji">📱</span><span class="label">UI 框架</span><span class="detail">Jetpack Compose · Material 3</span></div>
+            <div class="item"><span class="emoji">🧩</span><span class="label">架构</span><span class="detail">MVVM + StateFlow</span></div>
+            <div class="item"><span class="emoji">🐍</span><span class="label">Python 桥接</span><span class="detail">Chaquopy 17.0.0</span></div>
+            <div class="item"><span class="emoji">📦</span><span class="label">数据源</span><span class="detail">jmcomic (开源 Python 库)</span></div>
+            <div class="item"><span class="emoji">🖼️</span><span class="label">图片加载</span><span class="detail">Coil 2.7.0</span></div>
+            <div class="item"><span class="emoji">🧭</span><span class="label">导航</span><span class="detail">Navigation Compose</span></div>
+        </div>
+        <p class="desc" style="margin-top:1.2rem;">Kotlin 负责 UI 与业务逻辑 · Python 调用 jmcomic 处理网络与数据</p>
+    </div>
+
+    <!-- ===== 卡片 3：核心功能 ===== -->
+    <div class="slide">
+        <span class="badge">📖 核心功能</span>
+        <h2 style="font-size: clamp(1.8rem,4.5vw,3rem);">发现与浏览</h2>
+        <div class="feature-grid">
+            <div class="item"><span class="emoji">🏠</span><span class="label">首页推荐</span><span class="detail">2 列网格 · 无限滚动</span></div>
+            <div class="item"><span class="emoji">🏷️</span><span class="label">分类浏览</span><span class="detail">按标签分类 · 详情页无限滚动</span></div>
+            <div class="item"><span class="emoji">🔍</span><span class="label">搜索</span><span class="detail">关键词实时结果展示</span></div>
+            <div class="item"><span class="emoji">📄</span><span class="label">漫画详情</span><span class="detail">封面 · 作者 · 章节列表懒加载</span></div>
+        </div>
+        <p class="desc" style="margin-top:0.8rem;">LazyColumn 替代 Column+verticalScroll，滑动流畅</p>
+    </div>
+
+    <!-- ===== 卡片 4：阅读器 ===== -->
+    <div class="slide">
+        <span class="badge">📖 阅读体验</span>
+        <h2 style="font-size: clamp(1.8rem,4.5vw,3rem);">沉浸式阅读器</h2>
+        <div class="feature-grid">
+            <div class="item"><span class="emoji">📜</span><span class="label">连续滚动</span><span class="detail">无限滚动 · 无拼接痕迹</span></div>
+            <div class="item"><span class="emoji">⬇️</span><span class="label">批量并发下载</span><span class="detail">8 线程 · 动态优先级</span></div>
+            <div class="item"><span class="emoji">🔐</span><span class="label">图片解密</span><span class="detail">Canvas 条带重排</span></div>
+            <div class="item"><span class="emoji">💾</span><span class="label">磁盘缓存</span><span class="detail">解密后缓存 · 秒加载</span></div>
+        </div>
+        <div class="arch">
+            <span><strong>预加载</strong> 前方 8 张 · 后方保留 2 张</span>
+            <span><strong>尺寸预留</strong> aspectRatio 防跳动</span>
+        </div>
+    </div>
+
+    <!-- ===== 卡片 5：用户系统 ===== -->
+    <div class="slide">
+        <span class="badge">👤 用户系统</span>
+        <h2 style="font-size: clamp(1.8rem,4.5vw,3rem);">登录 · 收藏 · 下载</h2>
+        <div class="feature-grid">
+            <div class="item"><span class="emoji">🔑</span><span class="label">登录认证</span><span class="detail">账号密码登录</span></div>
+            <div class="item"><span class="emoji">🍪</span><span class="label">会话持久化</span><span class="detail">三级 Cookie 恢复机制</span></div>
+            <div class="item"><span class="emoji">❤️</span><span class="label">我的收藏</span><span class="detail">个人页预览 + 全量列表</span></div>
+            <div class="item"><span class="emoji">📥</span><span class="label">下载管理</span><span class="detail">独立 DownloadService · 离线下载</span></div>
+        </div>
+        <p class="desc" style="margin-top:0.8rem;">Cookie 三级恢复：进程内 → Cookie 自动验证 → 密码重新登录</p>
+    </div>
+
+    <!-- ===== 卡片 6：架构 & 结语 ===== -->
+    <div class="slide">
+        <span class="badge">🧬 架构设计</span>
+        <h2 style="font-size: clamp(1.8rem,4.5vw,3rem);">分层清晰 · 混合驱动</h2>
+        <div class="arch" style="flex-direction:column; gap:0.3rem; font-size:1rem;">
+            <div><strong>UI Layer</strong> — Compose (Home / Reader / Profile / Search / Detail)</div>
+            <div><strong>ViewModel Layer</strong> — StateFlow 驱动 UI 状态</div>
+            <div><strong>Kotlin Data Layer</strong> — PythonService / CacheManager / DownloadManager</div>
+            <div><strong>Python Bridge</strong> — jm_bridge.py 调用 jmcomic 库</div>
+        </div>
+        <p class="desc" style="margin-top:1.2rem; max-width:600px;">
+            ⚡ 本项目仅供学习交流使用 · 无广告 · 纯净体验<br />
+            <span style="font-size:0.85rem; opacity:0.7;">jmcomic 为开源第三方库，特此致谢</span>
+        </p>
+        <div class="tech-tags" style="margin-top:0.6rem;">
+            <span>#Android</span><span>#Kotlin</span><span>#Python</span><span>#Compose</span>
+        </div>
+    </div>
+
+    <!-- ===== 进度条 ===== -->
+    <div class="progress-bar"></div>
+
+    <!-- ===== 底部圆点 ===== -->
+    <div class="dots">
+        <span></span><span></span><span></span><span></span><span></span><span></span>
+    </div>
+
+    <!-- ===== GitHub 角标 ===== -->
+    <a class="github-corner" href="https://github.com/1976764/jm_c" target="_blank" rel="noopener">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        <span>GitHub</span>
+    </a>
+
+</div>
+
+</body>
+</html>
