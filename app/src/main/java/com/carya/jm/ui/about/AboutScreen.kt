@@ -132,7 +132,7 @@ fun AboutScreen(
 
                     // 一句话介绍
                     Text(
-                        text = "一款基于 Android 原生开发的 JM Comic 漫画客户端",
+                        text = "JM Comic Android 客户端，基于 Kotlin + Jetpack Compose + Chaquopy 开发",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -153,9 +153,9 @@ fun AboutScreen(
                     InfoItem(
                         icon = Icons.Default.Code,
                         label = "开源项目",
-                        value = "github.com/1976764/jm_c",
+                        value = "github.com/1976764/jm-comic-android",
                         onClick = {
-                            openUrl(context, "https://github.com/1976764/jm_c")
+                            openUrl(context, "https://github.com/1976764/jm-comic-android")
                         },
                     )
 
