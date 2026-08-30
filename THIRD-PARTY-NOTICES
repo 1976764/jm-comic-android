@@ -1,0 +1,25 @@
+Third-Party Notices
+
+This project uses third-party software and libraries.
+
+1. Upstream Python Library
+
+Copyright (c) 2023 hect0x7
+
+The upstream Python library is licensed under the MIT License.
+
+The original copyright notice and MIT License terms are retained.
+
+Original project:
+https://github.com/hect0x7/JMComic-Crawler-Python
+
+
+2. model-viewer / Three.js
+
+The corresponding copyright notices and license terms from the
+original distributions are retained.
+
+3. Other Third-Party Dependencies
+
+Third-party dependencies and assets remain subject to their respective
+licenses.
