@@ -23,12 +23,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -83,60 +81,51 @@ fun ProfileScreen(
         }
     }
 
-    when {
-        authState.isLoading -> {
-            Box(
-                modifier = modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center,
+    if (authState.isLoading) {
+        Box(
+            modifier = modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(32.dp),
-                        strokeWidth = 2.dp,
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = "正在登录...",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+                CircularProgressIndicator(
+                    modifier = Modifier.size(32.dp),
+                    strokeWidth = 2.dp,
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "正在登录...",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
-
-        authState.isLoggedIn -> {
-            LoggedInProfile(
-                userInfo = authState.userInfo,
-                favorites = profileState.favorites,
-                isFavoritesLoading = profileState.isFavoritesLoading,
-                favoritesError = profileState.favoritesError,
-                onComicClick = onComicClick,
-                onMoreFavorites = onMoreFavorites,
-                onDownloadClick = onDownloadClick,
-                onSettingsClick = onSettingsClick,
-                onAboutClick = onAboutClick,
-                onLogout = { authViewModel.logout() },
-                onRetryFavorites = { profileViewModel.loadFavorites() },
-                modifier = modifier,
-            )
-        }
-
-        else -> {
-            NotLoggedInProfile(
-                onLoginClick = onLoginClick,
-                onSettingsClick = onSettingsClick,
-                modifier = modifier,
-            )
-        }
+    } else {
+        ProfileContent(
+            isLoggedIn = authState.isLoggedIn,
+            userInfo = authState.userInfo,
+            favorites = profileState.favorites,
+            isFavoritesLoading = profileState.isFavoritesLoading,
+            favoritesError = profileState.favoritesError,
+            onComicClick = onComicClick,
+            onMoreFavorites = onMoreFavorites,
+            onDownloadClick = onDownloadClick,
+            onSettingsClick = onSettingsClick,
+            onAboutClick = onAboutClick,
+            onLoginClick = onLoginClick,
+            onLogout = { authViewModel.logout() },
+            onRetryFavorites = { profileViewModel.loadFavorites() },
+            modifier = modifier,
+        )
     }
 }
 
-// ---- Logged-in profile ----------------------------------------------------
+// ---- Profile content (logged in & not logged in) ---------------------------
 
 @Composable
-private fun LoggedInProfile(
+private fun ProfileContent(
+    isLoggedIn: Boolean,
     userInfo: UserInfo?,
     favorites: List<com.carya.jm.data.model.ComicItem>,
     isFavoritesLoading: Boolean,
@@ -146,6 +135,7 @@ private fun LoggedInProfile(
     onDownloadClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onAboutClick: () -> Unit,
+    onLoginClick: () -> Unit,
     onLogout: () -> Unit,
     onRetryFavorites: () -> Unit,
     modifier: Modifier = Modifier,
@@ -162,155 +152,169 @@ private fun LoggedInProfile(
             modifier = Modifier.fillMaxSize(),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 32.dp),
         ) {
-        // Header with user info
-        item {
-            UserHeader(userInfo = userInfo)
-        }
-
-        // Favorites section
-        item {
-            SectionTitle(text = "我的收藏")
-        }
-
-        when {
-            isFavoritesLoading -> {
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(32.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            strokeWidth = 2.dp,
-                        )
-                    }
-                }
+            // Header with user info
+            item {
+                UserHeader(userInfo = userInfo, isLoggedIn = isLoggedIn)
             }
 
-            favoritesError != null -> {
+            // Favorites section (only when logged in)
+            if (isLoggedIn) {
                 item {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Text(
-                            text = favoritesError,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        OutlinedButton(onClick = onRetryFavorites) {
-                            Text("重试")
-                        }
-                    }
+                    SectionTitle(text = "我的收藏")
                 }
-            }
 
-            favorites.isEmpty() -> {
-                item {
-                    Text(
-                        text = "暂无收藏",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
-                    )
-                }
-            }
-
-            else -> {
-                // 默认只展示前 3 个收藏
-                val displayItems = favorites.take(3)
-                items(displayItems, key = { it.id }) { item ->
-                    ComicRowItem(
-                        title = item.title,
-                        author = item.author,
-                        coverUrl = item.coverUrl,
-                        onClick = { onComicClick(item) },
-                    )
-                }
-                // 收藏超过 3 个时显示"更多收藏"按钮
-                if (favorites.size > 3) {
-                    item {
-                        Surface(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 20.dp, vertical = 4.dp)
-                                .clickable(onClick = onMoreFavorites),
-                            shape = RoundedCornerShape(8.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant,
-                        ) {
-                            Row(
+                when {
+                    isFavoritesLoading -> {
+                        item {
+                            Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(16.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center,
+                                    .padding(32.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(24.dp),
+                                    strokeWidth = 2.dp,
+                                )
+                            }
+                        }
+                    }
+
+                    favoritesError != null -> {
+                        item {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
                             ) {
                                 Text(
-                                    text = "更多收藏 (${favorites.size})",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = FontWeight.Medium,
-                                    color = MaterialTheme.colorScheme.primary,
+                                    text = favoritesError,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                OutlinedButton(onClick = onRetryFavorites) {
+                                    Text("重试")
+                                }
+                            }
+                        }
+                    }
+
+                    favorites.isEmpty() -> {
+                        item {
+                            Text(
+                                text = "暂无收藏",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
+                            )
+                        }
+                    }
+
+                    else -> {
+                        // 默认只展示前 3 个收藏
+                        val displayItems = favorites.take(3)
+                        items(displayItems, key = { it.id }) { item ->
+                            ComicRowItem(
+                                title = item.title,
+                                author = item.author,
+                                coverUrl = item.coverUrl,
+                                onClick = { onComicClick(item) },
+                            )
+                        }
+                        // 收藏超过 3 个时显示"更多收藏"按钮
+                        if (favorites.size > 3) {
+                            item {
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 20.dp, vertical = 4.dp)
+                                        .clickable(onClick = onMoreFavorites),
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant,
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(16.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center,
+                                    ) {
+                                        Text(
+                                            text = "更多收藏 (${favorites.size})",
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            fontWeight = FontWeight.Medium,
+                                            color = MaterialTheme.colorScheme.primary,
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
                 }
             }
-        }
 
-        // Settings section
-        item {
-            Spacer(modifier = Modifier.height(16.dp))
-            SectionTitle(text = "设置")
-        }
-
-        item {
-            SettingsItem(
-                icon = Icons.Default.Settings,
-                title = "设置",
-                onClick = onSettingsClick,
-            )
-        }
-
-        item {
-            SettingsItem(
-                icon = Icons.Default.Download,
-                title = "下载管理",
-                onClick = onDownloadClick,
-            )
-        }
-
-        item {
-            SettingsItem(
-                icon = Icons.Default.Info,
-                title = "关于",
-                onClick = onAboutClick,
-            )
-        }
-
-        // Logout button
-        item {
-            Spacer(modifier = Modifier.height(24.dp))
-            OutlinedButton(
-                onClick = onLogout,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
-            ) {
-                Text("退出登录")
+            // Settings section
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
+                SectionTitle(text = "设置")
             }
-        }
+
+            item {
+                SettingsItem(
+                    icon = Icons.Default.Settings,
+                    title = "设置",
+                    onClick = onSettingsClick,
+                )
+            }
+
+            item {
+                SettingsItem(
+                    icon = Icons.Default.Download,
+                    title = "下载管理",
+                    onClick = onDownloadClick,
+                )
+            }
+
+            item {
+                SettingsItem(
+                    icon = Icons.Default.Info,
+                    title = "关于",
+                    onClick = onAboutClick,
+                )
+            }
+
+            // Login / Logout button
+            item {
+                Spacer(modifier = Modifier.height(24.dp))
+                if (isLoggedIn) {
+                    OutlinedButton(
+                        onClick = onLogout,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp),
+                    ) {
+                        Text("退出登录")
+                    }
+                } else {
+                    Button(
+                        onClick = onLoginClick,
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp),
+                    ) {
+                        Text("登录", fontWeight = FontWeight.SemiBold)
+                    }
+                }
+            }
         }
 
         BackToTopButton(
@@ -324,7 +328,7 @@ private fun LoggedInProfile(
 }
 
 @Composable
-private fun UserHeader(userInfo: UserInfo?) {
+private fun UserHeader(userInfo: UserInfo?, isLoggedIn: Boolean) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -351,32 +355,38 @@ private fun UserHeader(userInfo: UserInfo?) {
 
         Column {
             Text(
-                text = userInfo?.username?.ifBlank { "未知用户" } ?: "未知用户",
+                text = if (isLoggedIn) {
+                    userInfo?.username?.ifBlank { "未知用户" } ?: "未知用户"
+                } else {
+                    "未登录"
+                },
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
             )
 
-            val info = userInfo
-            if (info != null) {
-                val details = buildList {
-                    if (info.levelName.isNotBlank()) {
-                        add("Lv.${info.level} ${info.levelName}")
+            if (isLoggedIn) {
+                val info = userInfo
+                if (info != null) {
+                    val details = buildList {
+                        if (info.levelName.isNotBlank()) {
+                            add("Lv.${info.level} ${info.levelName}")
+                        }
+                        if (info.coin > 0) {
+                            add("金币: ${info.coin}")
+                        }
+                        if (info.albumFavorites > 0) {
+                            add("收藏: ${info.albumFavorites}")
+                        }
                     }
-                    if (info.coin > 0) {
-                        add("金币: ${info.coin}")
+                    if (details.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = details.joinToString("  |  "),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
-                    if (info.albumFavorites > 0) {
-                        add("收藏: ${info.albumFavorites}")
-                    }
-                }
-                if (details.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = details.joinToString("  |  "),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
                 }
             }
         }
@@ -427,74 +437,6 @@ private fun SettingsItem(
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
-
-// ---- Not logged-in profile ------------------------------------------------
-
-@Composable
-private fun NotLoggedInProfile(
-    onLoginClick: () -> Unit,
-    onSettingsClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Box(modifier = modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .statusBarsPadding()
-                .padding(32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(64.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Person,
-                    contentDescription = null,
-                    modifier = Modifier.size(32.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            Text(
-                text = "登录后查看更多内容",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Button(
-                onClick = onLoginClick,
-                shape = RoundedCornerShape(14.dp),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("去登录", fontWeight = FontWeight.SemiBold)
-            }
-        }
-
-        // 设置入口：未登录时也能访问
-        IconButton(
-            onClick = onSettingsClick,
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .statusBarsPadding()
-                .padding(8.dp),
-        ) {
-            Icon(
-                imageVector = Icons.Default.Settings,
-                contentDescription = "设置",
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
