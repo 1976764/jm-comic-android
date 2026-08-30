@@ -305,32 +305,6 @@ class ComicDetailViewModel(
         CacheManager.get().cacheFavorites(cached)
     }
 
-    /**
-     * 后台拉最新收藏列表并写缓存。
-     *
-     * 只在服务端结果与 toggle 预期一致时才覆盖缓存——避免服务端读取副本
-     * 尚未同步（read-after-write 延迟）时把已取消的漫画写回缓存。
-     * 不修改 _isFavorited（乐观更新已正确，无需服务端校正）。
-     */
-    private fun refreshFavoritesFromServer(albumId: String, expectedFavorited: Boolean) {
-        viewModelScope.launch {
-            try {
-                val result = withContext(Dispatchers.IO) {
-                    python.favoriteFolder(1)
-                }
-                if (result.optBoolean("ok", false)) {
-                    val items = parseComicItems(result)
-                    val serverSaysFavorited = items.any { it.id == albumId }
-                    if (serverSaysFavorited == expectedFavorited) {
-                        CacheManager.get().cacheFavorites(items)
-                    }
-                }
-            } catch (_: Exception) {
-                // 刷新失败不影响已展示状态
-            }
-        }
-    }
-
     private fun mergeDetail(base: ComicDetail?, extra: ComicDetail): ComicDetail {
         if (base == null) return extra
         return ComicDetail(
