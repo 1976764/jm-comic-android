@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- 应用内更新 APK 专用目录：cacheDir/update/ -->
+    <cache-path
+        name="update"
+        path="update/" />
+</paths>

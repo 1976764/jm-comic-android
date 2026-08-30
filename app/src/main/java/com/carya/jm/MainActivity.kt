@@ -5,14 +5,18 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.lifecycle.lifecycleScope
 import com.chaquo.python.android.AndroidPlatform
 import com.carya.jm.data.cache.CacheManager
 import com.carya.jm.data.download.DownloadManager
 import com.carya.jm.data.python.PythonService
 import com.carya.jm.data.settings.AppSettings
+import com.carya.jm.data.update.UpdateManager
 import com.carya.jm.ui.navigation.AppNavigation
 import com.carya.jm.ui.theme.JMTheme
+import com.carya.jm.ui.update.UpdateDialogHost
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -29,11 +33,18 @@ class MainActivity : ComponentActivity() {
         CacheManager.init(this)
         DownloadManager.init(this)
         AppSettings.init(this)
+        UpdateManager.init(this)
 
         // 后台清理上次阅读的漫画图片和元数据缓存，不阻塞 UI
         lifecycleScope.launch(Dispatchers.IO) {
             CacheManager.get().clearReadingCache()
         }
+
+        // 后台清理上次更新残留的 APK / 临时下载文件（只动 cache/update/ 专用目录）
+        UpdateManager.cleanupUpdateFiles()
+
+        // 启动自动检查更新（进程内仅一次；失败静默，不打扰用户）
+        UpdateManager.maybeAutoCheck()
 
         // 后台测速
         lifecycleScope.launch(Dispatchers.IO) {
@@ -71,8 +82,20 @@ class MainActivity : ComponentActivity() {
         setContent {
             JMTheme {
                 AppNavigation()
+
+                // 更新弹窗统一挂载在根部：状态由 UpdateManager 单一持有，
+                // Activity 重建 / 屏幕旋转不会产生重复弹窗或重复下载
+                val updateState by UpdateManager.uiState.collectAsState()
+                UpdateDialogHost(updateState)
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+
+        // 用户从「允许安装未知应用」设置页返回且权限已开启时，继续完成安装
+        UpdateManager.onAppResumed()
     }
 
     /**

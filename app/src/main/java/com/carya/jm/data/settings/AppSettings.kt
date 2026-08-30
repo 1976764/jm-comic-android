@@ -15,6 +15,7 @@ object AppSettings {
     private const val KEY_SELECTED_DOMAIN = "selected_domain"
     private const val KEY_DOMAIN_MANUAL = "domain_manual"
     private const val KEY_DOMAIN_TEST_RESULTS = "domain_test_results"
+    private const val KEY_IGNORED_UPDATE_VERSION = "ignored_update_version"
 
     @Volatile
     private var prefs: SharedPreferences? = null
@@ -61,5 +62,18 @@ object AppSettings {
         get() = prefs().getString(KEY_DOMAIN_TEST_RESULTS, null)
         set(value) {
             prefs().edit().putString(KEY_DOMAIN_TEST_RESULTS, value).apply()
+        }
+
+    // ---- 版本更新 ----
+
+    /**
+     * 用户点击「暂不更新」时主动忽略的版本号（归一化后，如 "1.4"）。
+     * 后续启动时该版本不再自动弹窗；出现更高版本时重新提示。
+     * 手动「检查更新」不受此限制。
+     */
+    var ignoredUpdateVersion: String?
+        get() = prefs().getString(KEY_IGNORED_UPDATE_VERSION, null)
+        set(value) {
+            prefs().edit().putString(KEY_IGNORED_UPDATE_VERSION, value).apply()
         }
 }

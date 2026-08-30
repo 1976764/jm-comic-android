@@ -22,10 +22,16 @@
 -keep class com.carya.jm.data.python.PythonService { *; }
 
 # ---- Coil (image loading) ----
--keep class coil.** { *; }
+# Keep core Coil classes that are accessed reflectively or via named parameters
+-keep class coil.** {
+    @androidx.annotation.Keep *;
+}
+-keep class coil.compose.** { *; }
 
 # ---- Navigation Compose (uses reflection for route serialization) ----
--keep class androidx.navigation.** { *; }
+-keep class androidx.navigation.** {
+    @androidx.annotation.Keep *;
+}
 
 # ---- Keep enum values (used in when() expressions) ----
 -keepclassmembers enum * {
@@ -36,3 +42,9 @@
 # ---- Preserve source file names & line numbers for crash reports ----
 -keepattributes SourceFile, LineNumberTable
 -renamesourcefileattribute SourceFile
+
+# ---- Aggressive optimization flags ----
+-optimizationpasses 5
+-allowaccessmodification
+-repackageclasses
+-optimizations !code/simplification/arithmetic,!code/simplification/cast,!field/*,!class/merging/*

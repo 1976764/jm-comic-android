@@ -10,7 +10,6 @@ import com.carya.jm.data.download.DownloadService
 import com.carya.jm.data.model.ComicDetail
 import com.carya.jm.data.model.ComicItem
 import com.carya.jm.data.model.parseComicDetail
-import com.carya.jm.data.model.parseComicItems
 import com.carya.jm.data.model.parsePhotoInfo
 import com.carya.jm.data.python.PythonService
 import kotlinx.coroutines.Dispatchers

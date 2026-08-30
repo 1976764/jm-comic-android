@@ -27,7 +27,6 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
-import kotlin.math.abs
 
 /** Fallback aspect ratio (width / height) for typical manga pages. */
 private const val DEFAULT_ASPECT_RATIO = 2f / 3f

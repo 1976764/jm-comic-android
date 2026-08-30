@@ -1,7 +1,6 @@
 package com.carya.jm.data.download
 
 import android.content.Context
-import android.os.Build
 import android.provider.MediaStore
 import com.carya.jm.data.model.Episode
 import org.json.JSONArray
