@@ -248,11 +248,11 @@ class PythonService {
     // ---- Domain speed test ----------------------------------------------
 
     /**
-     * 探测候选 API 域名（TCP 443）的延迟与丢包率，返回按优劣排序的结果，
+     * 探测候选 API 域名（TCP 443）的延迟，返回按优劣排序的结果，
      * 并把最优域名应用到 jmcomic client（当前 + 后续创建的）。
      * 必须放在后台线程执行（网络 I/O，最长约 probes × timeout 秒）。
      *
-     * Returns: {"ok": true, "best": {"domain": "...", "packet_loss_pct": N,
+     * Returns: {"ok": true, "best": {"domain": "...",
      *           "avg_latency_ms": N, "success": true}, "results": [...],
      *           "applied": "..." | null}
      */

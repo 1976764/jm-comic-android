@@ -1093,12 +1093,12 @@ def _probe_tcp(domain: str, timeout: float):
 
 
 def test_domains(payload: dict) -> str:
-    """Probe candidate API domains (TCP 443) for latency & packet loss, pick the best.
+    """Probe candidate API domains (TCP 443) for latency, pick the best.
 
     Each domain is probed [probes] times (concurrently across domains); the
-    best domain is chosen by: success first -> lowest packet loss -> lowest
-    average latency.  The winner is applied to the current and future jmcomic
-    clients (``option.client.domain`` / ``client.domain_list``), so all
+    best domain is chosen by: success first -> lowest average latency.
+    The winner is applied to the current and future jmcomic clients
+    (``option.client.domain`` / ``client.domain_list``), so all
     subsequent API requests use it.
 
     Payload keys:
@@ -1119,18 +1119,14 @@ def test_domains(payload: dict) -> str:
 
     def probe_one(domain):
         lats = []
-        lost = 0
         for _ in range(probes):
             ok, ms = _probe_tcp(domain, timeout)
             if ok:
                 lats.append(ms)
-            else:
-                lost += 1
         return {
             "domain": domain,
-            "packet_loss_pct": round(lost / probes * 100, 1),
             "avg_latency_ms": round(sum(lats) / len(lats), 1) if lats else None,
-            "success": lost < probes,
+            "success": len(lats) > 0,
         }
 
     with ThreadPoolExecutor(max_workers=min(6, len(domains))) as executor:
@@ -1138,7 +1134,6 @@ def test_domains(payload: dict) -> str:
 
     results.sort(key=lambda r: (
         not r["success"],
-        r["packet_loss_pct"],
         r["avg_latency_ms"] if r["avg_latency_ms"] is not None else float("inf"),
     ))
 

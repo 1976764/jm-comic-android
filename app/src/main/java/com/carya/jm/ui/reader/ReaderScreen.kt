@@ -50,6 +50,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -126,6 +127,14 @@ fun ReaderScreen(
             }
     }
 
+    // Reading progress: current page / total pages (0..1)
+    val readingProgress by remember {
+        derivedStateOf {
+            val total = state.images.size
+            if (total == 0) 0f else (listState.firstVisibleItemIndex + 1).toFloat() / total
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -183,7 +192,6 @@ fun ReaderScreen(
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = WindowInsets.navigationBars.asPaddingValues(),
                 ) {
                     items(state.images, key = { imgState ->
                         when (imgState) {
@@ -237,7 +245,6 @@ fun ReaderScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .windowInsetsPadding(WindowInsets.statusBars)
                         .height(48.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -255,20 +262,35 @@ fun ReaderScreen(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f),
                     )
-                    IconButton(onClick = { showChapterSheet = true }) {
-                        Icon(
-                            imageVector = Icons.Filled.ArrowDropDown,
-                            contentDescription = "选择章节",
-                            tint = Color.White,
-                            modifier = Modifier.size(28.dp),
-                        )
+                    if (state.episodes.size > 1) {
+                        IconButton(onClick = { showChapterSheet = true }) {
+                            Icon(
+                                imageVector = Icons.Filled.ArrowDropDown,
+                                contentDescription = "选择章节",
+                                tint = Color.White,
+                                modifier = Modifier.size(28.dp),
+                            )
+                        }
                     }
                 }
             }
         }
-    }
 
-    // ---- Chapter selector bottom sheet ------------------------------------
+        // ---- Bottom reading progress bar (always visible, ultra-thin) ------
+        if (!state.isLoading && state.error == null && state.images.isNotEmpty()) {
+            LinearProgressIndicator(
+                progress = { readingProgress },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .height(4.dp),
+                color = Color(0xFF000000),
+                trackColor = Color.White.copy(alpha = 0.12f),
+                gapSize = 0.dp,
+                drawStopIndicator = {},
+            )
+        }
+    }
     if (showChapterSheet) {
         ChapterSelectorSheet(
             episodes = state.episodes,
@@ -342,7 +364,7 @@ private fun ChapterSelectorSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.surface,
+        containerColor = Color.Black.copy(alpha = 0.65f),
     ) {
         Column(
             modifier = Modifier

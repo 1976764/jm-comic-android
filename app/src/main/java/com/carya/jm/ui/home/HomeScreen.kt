@@ -56,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.carya.jm.ui.components.BackToTopButton
 import com.carya.jm.ui.components.ComicCard
+import com.carya.jm.ui.components.PreloadCovers
 import kotlinx.coroutines.launch
 
 @Composable
@@ -73,6 +74,14 @@ fun HomeScreen(
     val gridState = rememberLazyGridState()
     val scope = rememberCoroutineScope()
 
+    // Preload covers for items below the viewport (6 items ahead)
+    val coverUrls = remember(state.items) { state.items.map { it.coverUrl } }
+    PreloadCovers(
+        gridState = gridState,
+        coverUrls = coverUrls,
+        headerCount = if (showFilters) 3 else 1,
+    )
+
     // 搜索框文本（仅 searchMode 使用，跨重组/返回保留）
     var searchText by rememberSaveable { mutableStateOf("") }
 
@@ -89,7 +98,7 @@ fun HomeScreen(
                 val layoutInfo = gridState.layoutInfo
                 val lastVisibleIndex = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
                 val totalItems = layoutInfo.totalItemsCount
-                lastVisibleIndex >= totalItems - 4
+                lastVisibleIndex >= totalItems - 8
             }
         }
     }

@@ -43,6 +43,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.carya.jm.data.model.ComicItem
 import com.carya.jm.ui.components.BackToTopButton
 import com.carya.jm.ui.components.ComicCard
+import com.carya.jm.ui.components.PreloadCovers
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.launch
 
@@ -61,6 +62,14 @@ fun FavoritesScreen(
     val gridState = rememberLazyGridState()
     val scope = rememberCoroutineScope()
 
+    // Preload covers for items below the viewport (6 items ahead)
+    val coverUrls = remember(state.items) { state.items.map { it.coverUrl } }
+    PreloadCovers(
+        gridState = gridState,
+        coverUrls = coverUrls,
+        headerCount = 1,
+    )
+
     // --- Infinite scroll: trigger loadMore when near the bottom ---
     val shouldLoadMore by remember {
         derivedStateOf {
@@ -70,7 +79,7 @@ fun FavoritesScreen(
                 val layoutInfo = gridState.layoutInfo
                 val lastVisibleIndex = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
                 val totalItems = layoutInfo.totalItemsCount
-                lastVisibleIndex >= totalItems - 4
+                lastVisibleIndex >= totalItems - 8
             }
         }
     }

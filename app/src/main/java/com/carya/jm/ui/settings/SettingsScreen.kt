@@ -1,5 +1,10 @@
 package com.carya.jm.ui.settings
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -11,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -52,11 +58,10 @@ import org.json.JSONArray
 /** 单个域名的测速结果。 */
 private data class DomainTestResult(
     val domain: String,
-    val packetLossPct: Double,
     val avgLatencyMs: Double?,
 )
 
-/** 解析 test_domains 返回的 results 数组（AppSettings.domainTestResults）。 */
+/** 解析 test_domains 返回的 results 数组。 */
 private fun parseDomainResults(json: String?): List<DomainTestResult> {
     if (json.isNullOrBlank()) return emptyList()
     return try {
@@ -65,7 +70,6 @@ private fun parseDomainResults(json: String?): List<DomainTestResult> {
             val o = arr.optJSONObject(i) ?: return@mapNotNull null
             DomainTestResult(
                 domain = o.optString("domain"),
-                packetLossPct = o.optDouble("packet_loss_pct", 100.0),
                 avgLatencyMs = if (o.isNull("avg_latency_ms")) null else o.optDouble("avg_latency_ms"),
             )
         }
@@ -105,6 +109,7 @@ fun SettingsScreen(
                             AppSettings.selectedDomain = best.optString("domain")
                             selectedDomain = best.optString("domain")
                             domainManual = false
+                            AppSettings.domainManual = false
                         }
                     } else {
                         selectedDomain = AppSettings.selectedDomain
@@ -138,6 +143,11 @@ fun SettingsScreen(
         runSpeedTest(applyBest = true)
     }
 
+    fun selectManual() {
+        domainManual = true
+        AppSettings.domainManual = true
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -167,63 +177,76 @@ fun SettingsScreen(
                 )
             }
 
+            // ── Auto / Manual toggle ──
             item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Button(
-                        onClick = { runSpeedTest(applyBest = false) },
-                        enabled = !testing,
-                    ) {
-                        if (testing) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(16.dp),
-                                strokeWidth = 2.dp,
-                                color = MaterialTheme.colorScheme.onPrimary,
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("测速中…")
-                        } else {
-                            Text("重新测速")
-                        }
-                    }
-                }
-            }
-
-            item {
-                DomainRow(
+                DomainToggleRow(
                     title = "自动选择（推荐）",
-                    subtitle = if (domainManual) "当前为手动指定，点击恢复自动测速" else null,
-                    latencyText = null,
-                    lossText = null,
-                    selected = !domainManual && selectedDomain != null,
+                    subtitle = "启动时自动测速并选择延迟最低的域名",
+                    selected = !domainManual,
                     onClick = { selectAuto() },
                 )
             }
 
-            if (domainResults.isEmpty()) {
+            item {
+                DomainToggleRow(
+                    title = "手动选择",
+                    subtitle = if (domainManual) "点击下方域名进行选择" else "展开域名列表手动指定",
+                    selected = domainManual,
+                    onClick = { selectManual() },
+                )
+            }
+
+            // ── Expanded domain list (Manual mode only) ──
+            if (domainManual) {
                 item {
-                    Text(
-                        text = "暂无测速数据，点击「重新测速」获取各域名延迟",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
-                    )
-                }
-            } else {
-                domainResults.forEach { r ->
-                    item(key = r.domain) {
-                        DomainRow(
-                            title = r.domain,
-                            subtitle = null,
-                            latencyText = r.avgLatencyMs?.let { "${it.toInt()} ms" },
-                            lossText = "${r.packetLossPct}% 丢包",
-                            selected = domainManual && selectedDomain == r.domain,
-                            onClick = { selectDomain(r.domain) },
-                        )
+                    AnimatedVisibility(
+                        visible = domainManual,
+                        enter = expandVertically() + fadeIn(),
+                        exit = shrinkVertically() + fadeOut(),
+                    ) {
+                        Column {
+                            if (domainResults.isEmpty()) {
+                                Text(
+                                    text = "暂无测速数据，点击「重新测速」获取各域名延迟",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                                )
+                            } else {
+                                domainResults.forEach { r ->
+                                    DomainRow(
+                                        title = r.domain,
+                                        latencyText = r.avgLatencyMs?.let { "${it.toInt()} ms" },
+                                        selected = selectedDomain == r.domain,
+                                        onClick = { selectDomain(r.domain) },
+                                    )
+                                }
+                            }
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Button(
+                                    onClick = { runSpeedTest(applyBest = false) },
+                                    enabled = !testing,
+                                ) {
+                                    if (testing) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(16.dp),
+                                            strokeWidth = 2.dp,
+                                            color = MaterialTheme.colorScheme.onPrimary,
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("测速中…")
+                                    } else {
+                                        Text("重新测速")
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -263,12 +286,11 @@ fun SettingsScreen(
     }
 }
 
+/** Auto/Manual 选择行（单选样式，圆形指示器）。 */
 @Composable
-private fun DomainRow(
+private fun DomainToggleRow(
     title: String,
-    subtitle: String?,
-    latencyText: String?,
-    lossText: String?,
+    subtitle: String,
     selected: Boolean,
     onClick: () -> Unit,
 ) {
@@ -288,9 +310,8 @@ private fun DomainRow(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // 选中指示：圆形背景 + 勾选图标
             Surface(
-                shape = androidx.compose.foundation.shape.CircleShape,
+                shape = CircleShape,
                 color = if (selected) {
                     MaterialTheme.colorScheme.onSurface
                 } else {
@@ -317,7 +338,7 @@ private fun DomainRow(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                if (subtitle != null) {
+                if (subtitle.isNotBlank()) {
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = subtitle,
@@ -326,15 +347,65 @@ private fun DomainRow(
                     )
                 }
             }
+        }
+    }
+}
+
+/** 域名选择行（手动模式展开后使用）。 */
+@Composable
+private fun DomainRow(
+    title: String,
+    latencyText: String?,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 2.dp)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(8.dp),
+        color = if (selected) {
+            MaterialTheme.colorScheme.surfaceVariant
+        } else {
+            MaterialTheme.colorScheme.surface
+        },
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = if (selected) {
+                    MaterialTheme.colorScheme.onSurface
+                } else {
+                    MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                },
+                modifier = Modifier.size(20.dp),
+            ) {
+                if (selected) {
+                    Icon(
+                        imageVector = Icons.Filled.Check,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.surface,
+                        modifier = Modifier.size(14.dp),
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
             if (latencyText != null) {
                 Text(
                     text = latencyText,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(modifier = Modifier.width(10.dp))
-                Text(
-                    text = lossText.orEmpty(),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

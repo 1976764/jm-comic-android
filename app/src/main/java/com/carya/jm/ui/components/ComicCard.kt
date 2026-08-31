@@ -31,6 +31,9 @@ fun ComicCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
+    val (imgW, imgH) = rememberCardImageSize()
+
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(12.dp))
@@ -47,9 +50,10 @@ fun ComicCard(
         ) {
             if (coverUrl.isNotBlank()) {
                 AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
+                    model = ImageRequest.Builder(context)
                         .data(coverUrl)
                         .crossfade(true)
+                        .size(imgW, imgH)
                         .build(),
                     contentDescription = title,
                     modifier = Modifier.fillMaxWidth(),
