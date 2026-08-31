@@ -156,10 +156,11 @@ class CacheManager private constructor(private val cacheDir: File) {
     // ---- Clear reading cache (called on app startup) ----
 
     /**
-     * 清理上次阅读漫画的**图片**缓存（占空间最大的部分），保留元数据缓存
-     * （`albums/` 详情、`photos/` 章节信息、`home_*.json` 首页、`favorites.json` 收藏），
-     * 这样冷启动后再次打开漫画/章节无需重新拉取信息，秒开、无加载动画。
-     * - photos_raw/ 和 photos_decoded/ 目录（图片文件，占空间最大）
+     * 清理上次阅读的缓存，每次冷启动执行。
+     * - photos_raw/ 和 photos_decoded/（图片文件，占空间最大）
+     * - albums/（漫画详情页信息）
+     * - photos/（章节信息）
+     * 保留 home_*.json（首页列表）、favorites.json（收藏）。
      */
     fun clearReadingCache() {
         // 清理图片缓存（在 cacheDir 的父目录下）
@@ -168,8 +169,9 @@ class CacheManager private constructor(private val cacheDir: File) {
             File(parent, "photos_raw").deleteRecursively()
             File(parent, "photos_decoded").deleteRecursively()
         }
-        // 注意：albums/ 与 photos/ 元数据缓存刻意保留，仅占几 KB，
-        // 换取章节信息与详情页的秒开体验。
+        // 清理漫画详情页信息和章节信息
+        albumsDir.listFiles()?.forEach { it.delete() }
+        photosDir.listFiles()?.forEach { it.delete() }
     }
 
     // ---- Helpers ----

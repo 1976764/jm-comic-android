@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.IOException
+import java.net.URLEncoder
 
 /** 更新功能的 UI 状态（由 [UpdateManager] 单一持有，UI 只读渲染）。 */
 sealed interface UpdateUiState {
@@ -76,6 +77,33 @@ sealed interface UpdateUiState {
  * StateFlow 中，弹窗只挂载一份，不会重复触发检查或下载）。
  */
 object UpdateManager {
+
+    /** 下载镜像源定义。 */
+    data class DownloadMirror(
+        val name: String,
+        val description: String,
+        val urlBuilder: (String) -> String,
+    )
+
+    /** 可用的下载镜像源列表（UI 渲染 + 下载用）。 */
+    val MIRRORS = listOf(
+        DownloadMirror(
+            name = "GitHub 直连",
+            description = "原始链接，可能较慢",
+        ) { it },
+        DownloadMirror(
+            name = "GitHubCDN 加速",
+            description = "download.githubcdn.com",
+        ) { url -> "https://download.githubcdn.com/?url=" + URLEncoder.encode(url, "UTF-8") },
+        DownloadMirror(
+            name = "羽书加速",
+            description = "yushu.de5.net",
+        ) { url -> "https://yushu.de5.net/" + URLEncoder.encode(url, "UTF-8") },
+        DownloadMirror(
+            name = "gh-proxy 加速",
+            description = "v4.gh-proxy.org",
+        ) { url -> "https://v4.gh-proxy.org/" + URLEncoder.encode(url, "UTF-8") },
+    )
 
     /** 启动后延迟多久做自动检查（避开冷启动高峰，与域名测速等后台任务错开）。 */
     private const val AUTO_CHECK_DELAY_MS = 4000L
@@ -184,11 +212,12 @@ object UpdateManager {
 
     /**
      * 「立即更新」/ 下载失败重试：开始下载 APK。
+     * [downloadUrl] 为 null 时使用 Release 原始链接，非 null 时使用镜像 URL。
      * 下载进行中重复调用会被忽略（防重复下载）。
      */
-    fun startDownload() {
+    fun startDownload(downloadUrl: String? = null) {
         val release = currentRelease ?: return
-        val url = release.apkUrl ?: return
+        val url = downloadUrl ?: release.apkUrl ?: return
         if (_uiState.value is UpdateUiState.Downloading) return
         val downloader = downloader ?: return
 
@@ -239,6 +268,12 @@ object UpdateManager {
         if (_uiState.value !is UpdateUiState.Downloading) {
             _uiState.value = UpdateUiState.Idle
         }
+    }
+
+    /** 下载失败后重新选择下载源：回到镜像选择界面。 */
+    fun retrySelectMirror() {
+        val release = currentRelease ?: return
+        _uiState.value = UpdateUiState.UpdateAvailable(release, currentVersion)
     }
 
     // ---- 内部流程 ----------------------------------------------------------

@@ -1,5 +1,6 @@
 package com.carya.jm.ui.update
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -11,19 +12,21 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import com.carya.jm.data.update.ReleaseInfo
@@ -115,14 +118,13 @@ private fun CheckFailedDialog(message: String) {
     )
 }
 
-/** 发现新版本：版本信息 + 更新说明 + 发布时间 + 操作按钮。 */
+/** 发现新版本：版本信息 + 更新说明 + 下载镜像选择。 */
 @Composable
 private fun UpdateAvailableDialog(
     release: ReleaseInfo,
     currentVersion: String,
 ) {
     AlertDialog(
-        // 返回键 / 外部关闭等价于「暂不更新」（记录忽略版本）
         onDismissRequest = { UpdateManager.postponeUpdate() },
         title = { Text("发现新版本") },
         text = {
@@ -156,7 +158,7 @@ private fun UpdateAvailableDialog(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .heightIn(max = 240.dp)
+                                .heightIn(max = 200.dp)
                                 .verticalScroll(rememberScrollState())
                                 .padding(horizontal = 12.dp, vertical = 10.dp),
                         ) {
@@ -170,11 +172,34 @@ private fun UpdateAvailableDialog(
                 }
 
                 release.publishedAt?.let { published ->
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = "发布时间：$published",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+
+                // ── 下载镜像选择 ──
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "选择下载源：",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                val apkUrl = release.apkUrl
+                UpdateManager.MIRRORS.forEach { mirror ->
+                    MirrorOption(
+                        name = mirror.name,
+                        description = mirror.description,
+                        onClick = {
+                            if (apkUrl != null) {
+                                UpdateManager.startDownload(mirror.urlBuilder(apkUrl))
+                            }
+                        },
                     )
                 }
             }
@@ -182,11 +207,56 @@ private fun UpdateAvailableDialog(
         dismissButton = {
             TextButton(onClick = { UpdateManager.postponeUpdate() }) { Text("暂不更新") }
         },
-        confirmButton = {
-            TextButton(onClick = { UpdateManager.startDownload() }) { Text("立即更新") }
-        },
+        confirmButton = {},
         properties = DialogProperties(dismissOnClickOutside = false),
     )
+}
+
+/** 镜像源选择行。 */
+@Composable
+private fun MirrorOption(
+    name: String,
+    description: String,
+    onClick: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(8.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = name,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Icons.AutoMirrored.Filled.KeyboardArrowRight.let { arrow ->
+                Icon(
+                    imageVector = arrow,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
 }
 
 /** 有新版本但没有可下载的 APK。 */
@@ -217,7 +287,7 @@ private fun NoApkDialog(
     )
 }
 
-/** 下载中：不可关闭（返回键 / 点击外部均无效，且无取消按钮）。 */
+/** 下载中：不可关闭。 */
 @Composable
 private fun DownloadingDialog(state: UpdateUiState.Downloading) {
     AlertDialog(
@@ -282,7 +352,7 @@ private fun DownloadingDialog(state: UpdateUiState.Downloading) {
     )
 }
 
-/** 下载失败：提示原因，允许重试。 */
+/** 下载失败：提示原因，允许重新选择下载源。 */
 @Composable
 private fun DownloadFailedDialog(state: UpdateUiState.DownloadFailed) {
     AlertDialog(
@@ -299,7 +369,7 @@ private fun DownloadFailedDialog(state: UpdateUiState.DownloadFailed) {
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = "请检查网络连接后重试。",
+                    text = "请检查网络连接后重试，或更换下载源。",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -309,7 +379,9 @@ private fun DownloadFailedDialog(state: UpdateUiState.DownloadFailed) {
             TextButton(onClick = { UpdateManager.dismiss() }) { Text("取消") }
         },
         confirmButton = {
-            TextButton(onClick = { UpdateManager.startDownload() }) { Text("重新下载") }
+            TextButton(onClick = { UpdateManager.retrySelectMirror() }) {
+                Text("重新选择下载源")
+            }
         },
     )
 }
