@@ -54,6 +54,11 @@ fun UpdateDialogHost(state: UpdateUiState) {
             currentVersion = state.currentVersion,
         )
 
+        is UpdateUiState.SelectMirror -> SelectMirrorDialog(
+            release = state.release,
+            currentVersion = state.currentVersion,
+        )
+
         is UpdateUiState.NoApk -> NoApkDialog(
             release = state.release,
             currentVersion = state.currentVersion,
@@ -118,7 +123,7 @@ private fun CheckFailedDialog(message: String) {
     )
 }
 
-/** 发现新版本：版本信息 + 更新说明 + 下载镜像选择。 */
+/** 发现新版本：版本信息 + 更新说明 + 发布时间 + 「立即更新」按钮。 */
 @Composable
 private fun UpdateAvailableDialog(
     release: ReleaseInfo,
@@ -158,7 +163,7 @@ private fun UpdateAvailableDialog(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .heightIn(max = 200.dp)
+                                .heightIn(max = 240.dp)
                                 .verticalScroll(rememberScrollState())
                                 .padding(horizontal = 12.dp, vertical = 10.dp),
                         ) {
@@ -172,23 +177,50 @@ private fun UpdateAvailableDialog(
                 }
 
                 release.publishedAt?.let { published ->
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
                     Text(
                         text = "发布时间：$published",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = { UpdateManager.postponeUpdate() }) { Text("暂不更新") }
+        },
+        confirmButton = {
+            TextButton(onClick = { UpdateManager.showMirrorSelection() }) {
+                Text("立即更新")
+            }
+        },
+        properties = DialogProperties(dismissOnClickOutside = false),
+    )
+}
 
-                // ── 下载镜像选择 ──
-                Spacer(modifier = Modifier.height(16.dp))
+/** 选择下载镜像源：列出所有可用镜像，点击即开始下载。 */
+@Composable
+private fun SelectMirrorDialog(
+    release: ReleaseInfo,
+    currentVersion: String,
+) {
+    AlertDialog(
+        onDismissRequest = { UpdateManager.postponeUpdate() },
+        title = { Text("选择下载源") },
+        text = {
+            Column {
                 Text(
-                    text = "选择下载源：",
+                    text = "v$currentVersion → ${release.tagName}",
                     style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "请选择下载源，如果速度不理想可以取消后更换：",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(modifier = Modifier.height(10.dp))
 
                 val apkUrl = release.apkUrl
                 UpdateManager.MIRRORS.forEach { mirror ->
@@ -248,13 +280,11 @@ private fun MirrorOption(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            Icons.AutoMirrored.Filled.KeyboardArrowRight.let { arrow ->
-                Icon(
-                    imageVector = arrow,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
@@ -287,11 +317,11 @@ private fun NoApkDialog(
     )
 }
 
-/** 下载中：不可关闭。 */
+/** 下载中：可取消（取消后回到镜像选择）。 */
 @Composable
 private fun DownloadingDialog(state: UpdateUiState.Downloading) {
     AlertDialog(
-        onDismissRequest = { /* 下载中禁止关闭 */ },
+        onDismissRequest = { /* 下载中点击外部不关闭 */ },
         title = { Text("正在更新") },
         text = {
             Column {
@@ -344,9 +374,12 @@ private fun DownloadingDialog(state: UpdateUiState.Downloading) {
                 )
             }
         },
+        dismissButton = {
+            TextButton(onClick = { UpdateManager.cancelDownload() }) { Text("取消") }
+        },
         confirmButton = {},
         properties = DialogProperties(
-            dismissOnBackPress = false,
+            dismissOnBackPress = true,
             dismissOnClickOutside = false,
         ),
     )

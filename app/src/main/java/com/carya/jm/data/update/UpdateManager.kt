@@ -7,6 +7,7 @@ import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -33,6 +34,12 @@ sealed interface UpdateUiState {
 
     /** 发现新版本 */
     data class UpdateAvailable(
+        val release: ReleaseInfo,
+        val currentVersion: String,
+    ) : UpdateUiState
+
+    /** 选择下载镜像源（用户点击「立即更新」后进入） */
+    data class SelectMirror(
         val release: ReleaseInfo,
         val currentVersion: String,
     ) : UpdateUiState
@@ -96,7 +103,7 @@ object UpdateManager {
             description = "download.githubcdn.com",
         ) { url -> "https://download.githubcdn.com/?url=" + URLEncoder.encode(url, "UTF-8") },
         DownloadMirror(
-            name = "羽书加速",
+            name = "Yushu加速",
             description = "yushu.de5.net",
         ) { url -> "https://yushu.de5.net/" + URLEncoder.encode(url, "UTF-8") },
         DownloadMirror(
@@ -130,6 +137,13 @@ object UpdateManager {
 
     /** 已下载完成、等待安装（或等待权限授权后继续安装）的 APK 文件。 */
     private var pendingApkFile: File? = null
+
+    /** 进行中的下载协程（用于取消下载）。 */
+    private var downloadJob: Job? = null
+
+    /** 用户主动取消下载标志（区分取消与异常失败）。 */
+    @Volatile
+    private var downloadCancelledByUser = false
 
     // ---- 生命周期 ----------------------------------------------------------
 
@@ -210,8 +224,14 @@ object UpdateManager {
         _uiState.value = UpdateUiState.Idle
     }
 
+    /** 「立即更新」：进入镜像源选择界面。 */
+    fun showMirrorSelection() {
+        val release = currentRelease ?: return
+        _uiState.value = UpdateUiState.SelectMirror(release, currentVersion)
+    }
+
     /**
-     * 「立即更新」/ 下载失败重试：开始下载 APK。
+     * 选择镜像后开始下载 APK。
      * [downloadUrl] 为 null 时使用 Release 原始链接，非 null 时使用镜像 URL。
      * 下载进行中重复调用会被忽略（防重复下载）。
      */
@@ -220,8 +240,9 @@ object UpdateManager {
         val url = downloadUrl ?: release.apkUrl ?: return
         if (_uiState.value is UpdateUiState.Downloading) return
         val downloader = downloader ?: return
+        downloadCancelledByUser = false
 
-        scope.launch {
+        downloadJob = scope.launch {
             _uiState.value = UpdateUiState.Downloading(release.version, 0, 0, release.apkSize)
 
             try {
@@ -250,12 +271,23 @@ object UpdateManager {
                     _uiState.value = UpdateUiState.InstallPermissionNeeded
                 }
             } catch (e: Exception) {
+                // 用户主动取消：状态已由 cancelDownload() 设为 SelectMirror，不覆盖
+                if (downloadCancelledByUser) return@launch
                 _uiState.value = UpdateUiState.DownloadFailed(
                     version = release.version,
                     message = e.message ?: "下载失败，请稍后重试",
                 )
             }
         }
+    }
+
+    /** 下载中用户取消：停止下载并回到镜像选择界面。 */
+    fun cancelDownload() {
+        downloadCancelledByUser = true
+        downloadJob?.cancel()
+        downloadJob = null
+        val release = currentRelease ?: return
+        _uiState.value = UpdateUiState.SelectMirror(release, currentVersion)
     }
 
     /** 「去开启」安装权限。 */
@@ -273,7 +305,7 @@ object UpdateManager {
     /** 下载失败后重新选择下载源：回到镜像选择界面。 */
     fun retrySelectMirror() {
         val release = currentRelease ?: return
-        _uiState.value = UpdateUiState.UpdateAvailable(release, currentVersion)
+        _uiState.value = UpdateUiState.SelectMirror(release, currentVersion)
     }
 
     // ---- 内部流程 ----------------------------------------------------------
