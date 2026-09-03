@@ -13,6 +13,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
@@ -59,6 +62,7 @@ import com.carya.jm.ui.components.ComicCard
 import com.carya.jm.ui.components.PreloadCovers
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun HomeScreen(
     onComicClick: (com.carya.jm.data.model.ComicItem) -> Unit,
@@ -69,6 +73,9 @@ fun HomeScreen(
     onBack: (() -> Unit)? = null,
     onSearchClick: (() -> Unit)? = null,
     searchMode: Boolean = false,
+    searchHistory: List<String> = emptyList(),
+    onClearHistory: () -> Unit = {},
+    onSearchSubmit: (String) -> Unit = {},
 ) {
     val state by viewModel.state.collectAsState()
     val gridState = rememberLazyGridState()
@@ -87,6 +94,9 @@ fun HomeScreen(
 
     val doSearch = {
         viewModel.searchByKeyword(searchText)
+        if (searchText.isNotBlank()) {
+            onSearchSubmit(searchText.trim())
+        }
     }
 
     // --- Infinite scroll: trigger loadMore when near the bottom ---
@@ -286,18 +296,85 @@ fun HomeScreen(
             // --- Search empty state ---
             if (searchMode && !state.isLoading && state.items.isEmpty() && state.error == null) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(240.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = if (state.hasSearched) "没有找到相关漫画" else "输入关键词开始搜索",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center,
-                        )
+                    if (state.hasSearched) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(240.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = "没有找到相关漫画",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center,
+                            )
+                        }
+                    } else if (searchHistory.isNotEmpty()) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 16.dp),
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = "搜索历史",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Text(
+                                    text = "清除",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.clickable { onClearHistory() },
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                searchHistory.forEach { keyword ->
+                                    FilterChip(
+                                        selected = false,
+                                        onClick = {
+                                            searchText = keyword
+                                            viewModel.searchByKeyword(keyword)
+                                            onSearchSubmit(keyword)
+                                        },
+                                        label = {
+                                            Text(
+                                                text = keyword,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                maxLines = 1,
+                                            )
+                                        },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                            labelColor = MaterialTheme.colorScheme.onSurface,
+                                        ),
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(240.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = "输入关键词开始搜索",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center,
+                            )
+                        }
                     }
                 }
             }

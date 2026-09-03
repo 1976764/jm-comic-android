@@ -23,6 +23,28 @@ _user_info = {}     # dict -- user info captured from the login response
 _best_domain = None  # str -- best API domain picked by test_domains(), applied to all clients
 
 
+def _call_api(api_func, *args, **kwargs):
+    """Call a jmcomic API function with automatic domain fallback.
+
+    If the call fails (e.g., the domain override from test_domains is bad),
+    clear the override, recreate the client, and retry once.
+    """
+    global _best_domain, _jm_client
+    client = _ensure_client()
+    try:
+        return api_func(client, *args, **kwargs)
+    except Exception as first_exc:
+        # The domain override might be causing the failure.
+        # Clear it and recreate the client with default domains.
+        _best_domain = None
+        _jm_client = None
+        try:
+            client = _ensure_client()
+            return api_func(client, *args, **kwargs)
+        except Exception:
+            raise first_exc
+
+
 def health_check() -> str:
     """Return runtime capability information without performing network I/O."""
     return json.dumps({
@@ -296,13 +318,12 @@ def categories_filter(payload: dict) -> str:
     order_by = payload.get("order_by", "mv")
 
     try:
-        client = _ensure_client()
-        result = client.categories_filter(
+        result = _call_api(lambda c: c.categories_filter(
             page=page,
             time=time,
             category=category,
             order_by=order_by,
-        )
+        ))
 
         items = []
         for aid, info in result.content:
@@ -333,8 +354,7 @@ def get_album_detail(payload: dict) -> str:
         return json.dumps({"ok": False, "error": "album_id不能为空"})
 
     try:
-        client = _ensure_client()
-        album = client.get_album_detail(album_id)
+        album = _call_api(lambda c: c.get_album_detail(album_id))
 
         episodes = []
         for ep in album.episode_list:
@@ -392,10 +412,7 @@ def search(payload: dict) -> str:
     main_tag = int(payload.get("main_tag", 0))
 
     try:
-        client = _ensure_client()
-
-        # search(search_query, page, main_tag, order_by, time, category, sub_category)
-        result = client.search(
+        result = _call_api(lambda c: c.search(
             search_query=query,
             page=page,
             main_tag=main_tag,
@@ -403,7 +420,7 @@ def search(payload: dict) -> str:
             time=time,
             category=category,
             sub_category=None,
-        )
+        ))
 
         items = []
         for aid, info in result.content:
@@ -439,9 +456,10 @@ _photo_cache = {}
 def _get_photo(photo_id: str):
     """Get (cached) JmPhotoDetail with scramble id fetched."""
     if photo_id not in _photo_cache:
-        client = _ensure_client()
-        _photo_cache[photo_id] = client.get_photo_detail(
-            photo_id, fetch_album=False, fetch_scramble_id=True
+        _photo_cache[photo_id] = _call_api(
+            lambda c: c.get_photo_detail(
+                photo_id, fetch_album=False, fetch_scramble_id=True
+            )
         )
     return _photo_cache[photo_id]
 

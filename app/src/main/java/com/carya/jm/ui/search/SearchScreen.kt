@@ -1,17 +1,17 @@
 package com.carya.jm.ui.search
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.carya.jm.data.settings.AppSettings
 import com.carya.jm.ui.home.ComicQuery
 import com.carya.jm.ui.home.HomeScreen
 import com.carya.jm.ui.home.HomeViewModel
 
-/**
- * 搜索页：复用 [HomeScreen] 的网格 / 无限滚动 / 回到顶部逻辑，
- * 顶部以搜索栏代替标题行，支持按关键词（main_tag=0）搜索。
- * 初始不加载任何数据，输入关键词提交后才触发搜索。
- */
 @Composable
 fun SearchScreen(
     onComicClick: (com.carya.jm.data.model.ComicItem) -> Unit,
@@ -26,6 +26,8 @@ fun SearchScreen(
         ),
     )
 
+    var searchHistory by remember { mutableStateOf(AppSettings.getSearchHistory()) }
+
     HomeScreen(
         onComicClick = onComicClick,
         modifier = modifier,
@@ -34,5 +36,14 @@ fun SearchScreen(
         showFilters = false,
         onBack = onBack,
         searchMode = true,
+        searchHistory = searchHistory,
+        onClearHistory = {
+            AppSettings.clearSearchHistory()
+            searchHistory = emptyList()
+        },
+        onSearchSubmit = { keyword ->
+            AppSettings.addSearchHistory(keyword)
+            searchHistory = AppSettings.getSearchHistory()
+        },
     )
 }

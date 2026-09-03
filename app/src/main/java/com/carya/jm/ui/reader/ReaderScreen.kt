@@ -40,6 +40,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -361,87 +362,106 @@ private fun ChapterSelectorSheet(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
+    val darkScheme = darkColorScheme(
+        // 整体背景：墨青黑
+        surface = Color(0xFF171A1C),
+        onSurface = Color(0xFFE6E8E9),
+
+        // 次级背景
+        surfaceVariant = Color(0xFF22272A),
+        onSurfaceVariant = Color(0xFF9BA3A7),
+
+        // 强调色：低饱和灰青
+        primary = Color(0xFF8FA3A8),
+
+        // 当前章节背景
+        primaryContainer = Color(0xFF354348),
+        onPrimaryContainer = Color(0xFFDCE4E6),
+    )
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = Color.Black.copy(alpha = 0.65f),
+        containerColor = darkScheme.surface,
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = WindowInsets.navigationBars.asPaddingValues()
-                    .calculateBottomPadding()),
-        ) {
-            Text(
-                text = "选择章节",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
-            )
-
-            androidx.compose.foundation.lazy.LazyColumn(
+        MaterialTheme(colorScheme = darkScheme) {
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(
-                        if (episodes.size > 10) 420.dp
-                        else (episodes.size * 56).dp
-                    ),
+                    .padding(bottom = WindowInsets.navigationBars.asPaddingValues()
+                        .calculateBottomPadding()),
             ) {
-                items(episodes, key = { it.id }) { ep ->
-                    val isCurrent = ep.id == currentEpisodeId
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 3.dp)
-                            .clickable { onSelect(ep) },
-                        shape = RoundedCornerShape(8.dp),
-                        color = if (isCurrent)
-                            MaterialTheme.colorScheme.primaryContainer
-                        else
-                            MaterialTheme.colorScheme.surface,
-                    ) {
-                        androidx.compose.foundation.layout.Row(
+                Text(
+                    text = "选择章节",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                )
+
+                androidx.compose.foundation.lazy.LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(
+                            if (episodes.size > 10) 420.dp
+                            else (episodes.size * 56).dp
+                        ),
+                ) {
+                    items(episodes, key = { it.id }) { ep ->
+                        val isCurrent = ep.id == currentEpisodeId
+                        Surface(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 14.dp),
-                            verticalAlignment = Alignment.CenterVertically,
+                                .padding(horizontal = 12.dp, vertical = 3.dp)
+                                .clickable { onSelect(ep) },
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (isCurrent)
+                                MaterialTheme.colorScheme.primaryContainer
+                            else
+                                MaterialTheme.colorScheme.surface,
                         ) {
-                            Text(
-                                text = ep.index,
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = if (isCurrent)
-                                    MaterialTheme.colorScheme.primary
-                                else
-                                    MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(width = 32.dp, height = 20.dp),
-                            )
-                            Text(
-                                text = ep.title,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = if (isCurrent)
-                                    MaterialTheme.colorScheme.onPrimaryContainer
-                                else
-                                    MaterialTheme.colorScheme.onSurface,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f),
-                            )
-                            if (isCurrent) {
-                                Icon(
-                                    imageVector = Icons.Filled.ArrowDropUp,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(20.dp),
+                            androidx.compose.foundation.layout.Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = ep.index,
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isCurrent)
+                                        MaterialTheme.colorScheme.primary
+                                    else
+                                        MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(width = 32.dp, height = 20.dp),
                                 )
+                                Text(
+                                    text = ep.title,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = if (isCurrent)
+                                        MaterialTheme.colorScheme.onPrimaryContainer
+                                    else
+                                        MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                if (isCurrent) {
+                                    Icon(
+                                        imageVector = Icons.Filled.ArrowDropUp,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp),
+                                    )
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(16.dp))
+                androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(16.dp))
+            }
         }
     }
 }

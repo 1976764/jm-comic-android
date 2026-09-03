@@ -2,6 +2,7 @@ package com.carya.jm.data.settings
 
 import android.content.Context
 import android.content.SharedPreferences
+import org.json.JSONArray
 
 /**
  * 应用设置（SharedPreferences 存储，进程内单例）。
@@ -16,6 +17,8 @@ object AppSettings {
     private const val KEY_DOMAIN_MANUAL = "domain_manual"
     private const val KEY_DOMAIN_TEST_RESULTS = "domain_test_results"
     private const val KEY_IGNORED_UPDATE_VERSION = "ignored_update_version"
+    private const val KEY_SEARCH_HISTORY = "search_history"
+    private const val SEARCH_HISTORY_MAX = 15
 
     @Volatile
     private var prefs: SharedPreferences? = null
@@ -76,4 +79,37 @@ object AppSettings {
         set(value) {
             prefs().edit().putString(KEY_IGNORED_UPDATE_VERSION, value).apply()
         }
+
+    // ---- 搜索历史 ----
+
+    /** 获取搜索历史列表（最新在前）。 */
+    fun getSearchHistory(): List<String> {
+        val raw = prefs().getString(KEY_SEARCH_HISTORY, null) ?: return emptyList()
+        return try {
+            val arr = JSONArray(raw)
+            (0 until arr.length()).map { arr.getString(it) }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    /** 添加一条搜索历史：去重后插入最前，超过上限则删除最旧的。 */
+    fun addSearchHistory(keyword: String) {
+        val trimmed = keyword.trim()
+        if (trimmed.isEmpty()) return
+        val current = getSearchHistory().toMutableList()
+        current.remove(trimmed)
+        current.add(0, trimmed)
+        if (current.size > SEARCH_HISTORY_MAX) {
+            current.subList(SEARCH_HISTORY_MAX, current.size).clear()
+        }
+        val arr = JSONArray()
+        current.forEach { arr.put(it) }
+        prefs().edit().putString(KEY_SEARCH_HISTORY, arr.toString()).apply()
+    }
+
+    /** 清空搜索历史。 */
+    fun clearSearchHistory() {
+        prefs().edit().remove(KEY_SEARCH_HISTORY).apply()
+    }
 }

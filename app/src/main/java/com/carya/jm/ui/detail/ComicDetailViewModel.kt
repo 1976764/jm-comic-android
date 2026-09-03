@@ -9,6 +9,7 @@ import com.carya.jm.data.download.DownloadProgress
 import com.carya.jm.data.download.DownloadService
 import com.carya.jm.data.model.ComicDetail
 import com.carya.jm.data.model.ComicItem
+import com.carya.jm.data.model.Episode
 import com.carya.jm.data.model.parseComicDetail
 import com.carya.jm.data.model.parsePhotoInfo
 import com.carya.jm.data.python.PythonService
@@ -113,21 +114,35 @@ class ComicDetailViewModel(
                         )
                         maybeStartPreload()
                     } else {
-                        _state.value = _state.value.copy(isFetchingDetail = false)
+                        onFetchFailed("解析详情数据失败")
                     }
                 } else {
-                    _state.value = _state.value.copy(
-                        isFetchingDetail = false,
-                        error = result.optString("error", "加载失败"),
-                    )
+                    val msg = result.optString("message", "")
+                        .ifBlank { result.optString("error", "加载失败") }
+                    onFetchFailed(msg)
                 }
             } catch (e: Exception) {
-                _state.value = _state.value.copy(
-                    isFetchingDetail = false,
-                    error = e.message ?: "网络错误",
-                )
+                onFetchFailed(e.message ?: "网络错误")
             }
         }
+    }
+
+    /**
+     * 详情获取失败时的统一处理：记录错误，并添加兜底章节让用户可以阅读。
+     * 单章节漫画的 photo_id == album_id，用 albumId 构造一个兜底 Episode。
+     */
+    private fun onFetchFailed(errorMsg: String) {
+        val current = _state.value.detail
+        val withFallback = if (current != null && current.episodes.isEmpty()) {
+            current.copy(episodes = listOf(Episode(albumId, "1", "第1章")))
+        } else {
+            current
+        }
+        _state.value = _state.value.copy(
+            isFetchingDetail = false,
+            error = errorMsg,
+            detail = withFallback,
+        )
     }
 
     fun loadDetail() = fetchMissingDetail()

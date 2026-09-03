@@ -150,6 +150,7 @@ fun ComicDetailScreen(
                     detail = detail,
                     onReadChapter = onReadChapter,
                     isFetchingDetail = state.isFetchingDetail,
+                    error = state.error,
                     onRetry = { viewModel.loadDetail() },
                     modifier = Modifier
                         .fillMaxSize()
@@ -202,6 +203,7 @@ private fun DetailContent(
     detail: ComicDetail,
     onReadChapter: (photoId: String, episodes: List<com.carya.jm.data.model.Episode>) -> Unit,
     isFetchingDetail: Boolean,
+    error: String?,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -337,6 +339,42 @@ private fun DetailContent(
                     ep = ep,
                     onClick = { onReadChapter(ep.id, detail.episodes) },
                 )
+            }
+        }
+
+        // 加载失败提示（详情不完整时内联展示错误 + 重试，但不阻塞阅读）
+        if (error != null && !isFetchingDetail) {
+            item(key = "error") {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.errorContainer,
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = error,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.weight(1f),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Button(
+                            onClick = onRetry,
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+                        ) {
+                            Text("重试", style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
+                }
             }
         }
 
