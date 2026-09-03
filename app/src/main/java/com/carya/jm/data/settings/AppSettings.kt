@@ -19,6 +19,7 @@ object AppSettings {
     private const val KEY_IGNORED_UPDATE_VERSION = "ignored_update_version"
     private const val KEY_SEARCH_HISTORY = "search_history"
     private const val SEARCH_HISTORY_MAX = 15
+    private const val KEY_LAST_VISIT_DATE = "last_visit_date"
 
     @Volatile
     private var prefs: SharedPreferences? = null
@@ -78,6 +79,15 @@ object AppSettings {
         get() = prefs().getString(KEY_IGNORED_UPDATE_VERSION, null)
         set(value) {
             prefs().edit().putString(KEY_IGNORED_UPDATE_VERSION, value).apply()
+        }
+
+    // ---- 每日访问统计 ----
+
+    /** 获取上次访问日期（yyyy-MM-dd），用于判断今天是否已发送过访问请求。 */
+    var lastVisitDate: String?
+        get() = prefs().getString(KEY_LAST_VISIT_DATE, null)
+        set(value) {
+            prefs().edit().putString(KEY_LAST_VISIT_DATE, value).apply()
         }
 
     // ---- 搜索历史 ----

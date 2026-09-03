@@ -20,6 +20,14 @@ import com.carya.jm.ui.update.UpdateDialogHost
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.concurrent.TimeUnit
 
 class MainActivity : ComponentActivity() {
 
@@ -45,6 +53,9 @@ class MainActivity : ComponentActivity() {
 
         // 启动自动检查更新（进程内仅一次；失败静默，不打扰用户）
         UpdateManager.maybeAutoCheck()
+
+        // 每日首次启动发送访问统计
+        maybeSendDailyVisit()
 
         // 后台测速
         lifecycleScope.launch(Dispatchers.IO) {
@@ -130,6 +141,36 @@ class MainActivity : ComponentActivity() {
 
             // 同时设置目标刷新率
             preferredRefreshRate = highestMode.refreshRate
+        }
+    }
+
+    /**
+     * 每天首次启动 App 时向统计服务发送 POST 请求，每天只发一次。
+     * 失败静默，不影响使用。
+     */
+    private fun maybeSendDailyVisit() {
+        val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+        if (AppSettings.lastVisitDate == today) return
+
+        AppSettings.lastVisitDate = today
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val client = OkHttpClient.Builder()
+                    .connectTimeout(10, TimeUnit.SECONDS)
+                    .writeTimeout(10, TimeUnit.SECONDS)
+                    .readTimeout(10, TimeUnit.SECONDS)
+                    .build()
+
+                val req = Request.Builder()
+                    .url("https://jm-api.xinsis.com/api/visit")
+                    .post("".toRequestBody("application/json".toMediaType()))
+                    .build()
+
+                client.newCall(req).execute().close()
+            } catch (_: Exception) {
+                // 失败不影响使用；今天已标记，明天再发
+            }
         }
     }
 }
