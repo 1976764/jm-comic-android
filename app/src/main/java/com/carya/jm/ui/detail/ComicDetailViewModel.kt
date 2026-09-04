@@ -14,6 +14,7 @@ import com.carya.jm.data.model.parseComicDetail
 import com.carya.jm.data.model.parsePhotoInfo
 import com.carya.jm.data.python.PythonService
 import kotlinx.coroutines.Dispatchers
+import org.json.JSONArray
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,6 +25,25 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+data class CommentItem(
+    val id: String,
+    val username: String,
+    val content: String,
+    val createdAt: String,
+    val likes: Int,
+    val isSpoiler: Boolean,
+    val replies: List<CommentItem>,
+)
+
+data class CommentsUiState(
+    val comments: List<CommentItem> = emptyList(),
+    val isLoading: Boolean = false,
+    val error: String? = null,
+    val total: Int = 0,
+    val page: Int = 1,
+    val pageCount: Int = 1,
+)
 
 data class ComicDetailUiState(
     val detail: ComicDetail? = null,
@@ -52,6 +72,9 @@ class ComicDetailViewModel(
 
     private val _state = MutableStateFlow(ComicDetailUiState())
     val state: StateFlow<ComicDetailUiState> = _state.asStateFlow()
+
+    private val _commentsState = MutableStateFlow(CommentsUiState())
+    val commentsState: StateFlow<CommentsUiState> = _commentsState.asStateFlow()
 
     /** Filter the global download progress to only show this album's status. */
     val downloadProgress: StateFlow<DownloadProgress> = DownloadService.activeDownloads
@@ -333,5 +356,60 @@ class ComicDetailViewModel(
             updateDate = base.updateDate.ifBlank { extra.updateDate },
             episodes = if (base.episodes.isNotEmpty()) base.episodes else extra.episodes,
         )
+    }
+
+    fun loadComments(page: Int = 1) {
+        val current = _commentsState.value
+        if (current.isLoading) return
+        _commentsState.value = current.copy(isLoading = true, error = null)
+        viewModelScope.launch {
+            try {
+                val result = withContext(Dispatchers.IO) {
+                    python.getAlbumComments(albumId, page)
+                }
+                if (result.optBoolean("ok", false)) {
+                    val newComments = parseComments(result.optJSONArray("comments"))
+                    _commentsState.value = CommentsUiState(
+                        comments = if (page == 1) newComments else current.comments + newComments,
+                        isLoading = false,
+                        total = result.optInt("total", 0),
+                        page = page,
+                        pageCount = result.optInt("page_count", 1),
+                    )
+                } else {
+                    _commentsState.value = current.copy(
+                        isLoading = false,
+                        error = result.optString("error", "加载评论失败"),
+                    )
+                }
+            } catch (e: Exception) {
+                _commentsState.value = current.copy(
+                    isLoading = false,
+                    error = e.message ?: "网络错误",
+                )
+            }
+        }
+    }
+
+    fun loadMoreComments() {
+        val current = _commentsState.value
+        if (current.isLoading || current.page >= current.pageCount) return
+        loadComments(page = current.page + 1)
+    }
+
+    private fun parseComments(jsonArray: JSONArray?): List<CommentItem> {
+        if (jsonArray == null) return emptyList()
+        return (0 until jsonArray.length()).mapNotNull { i ->
+            val obj = jsonArray.optJSONObject(i) ?: return@mapNotNull null
+            CommentItem(
+                id = obj.optString("id"),
+                username = obj.optString("username"),
+                content = obj.optString("content"),
+                createdAt = obj.optString("created_at"),
+                likes = obj.optInt("likes", -1),
+                isSpoiler = obj.optBoolean("is_spoiler"),
+                replies = parseComments(obj.optJSONArray("replies")),
+            )
+        }
     }
 }

@@ -389,6 +389,56 @@ def get_album_detail(payload: dict) -> str:
         })
 
 
+def _serialize_comment(c):
+    """Serialize a JmAlbumComment to a JSON-serializable dict."""
+    likes = getattr(c, 'likes', None)
+    return {
+        "id": str(getattr(c, 'comment_id', '') or getattr(c, 'cid', '') or ""),
+        "user_id": str(getattr(c, 'user_id', '') or ""),
+        "username": getattr(c, 'nickname', None) or getattr(c, 'username', None) or "",
+        "content": getattr(c, 'content', "") or "",
+        "created_at": str(getattr(c, 'created_at', '') or getattr(c, 'time', '') or ""),
+        "likes": likes if likes is not None else -1,
+        "is_spoiler": bool(getattr(c, 'is_spoiler', False)),
+        "replies": [_serialize_comment(r) for r in (getattr(c, 'replies', None) or [])],
+    }
+
+
+def get_album_comments(payload: dict) -> str:
+    """Fetch comments for an album.
+
+    Payload keys:
+        album_id (str, required)
+        page     (int, optional, default 1)
+    """
+    album_id = str(payload.get("album_id", "")).strip()
+    if not album_id:
+        return json.dumps({"ok": False, "error": "album_id不能为空"})
+
+    page = int(payload.get("page", 1))
+
+    try:
+        comment_page = _call_api(
+            lambda c: c.album_pagination(album_id, page=page)
+        )
+
+        comments = [_serialize_comment(c) for c in comment_page]
+
+        return json.dumps({
+            "ok": True,
+            "total": getattr(comment_page, 'total', 0) or 0,
+            "page": page,
+            "page_count": getattr(comment_page, 'page_count', None) or 1,
+            "comments": comments,
+        })
+    except Exception as exc:
+        return json.dumps({
+            "ok": False,
+            "error": str(exc),
+            "traceback": traceback.format_exc(),
+        })
+
+
 def search(payload: dict) -> str:
     """Search for comics by keyword.
 
@@ -1292,6 +1342,7 @@ _OPERATIONS = {
     "get_user_info": get_user_info,
     "categories_filter": categories_filter,
     "get_album_detail": get_album_detail,
+    "get_album_comments": get_album_comments,
     "get_photo_info": get_photo_info,
     "download_image": download_image,
     "download_images_batch": download_images_batch,

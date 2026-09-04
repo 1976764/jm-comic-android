@@ -105,6 +105,18 @@ class PythonService {
     }
 
     /**
+     * Get comments for an album.
+     * Returns: {"ok": true, "total": N, "page": 1, "page_count": M, "comments": [...]}
+     */
+    fun getAlbumComments(albumId: String, page: Int = 1): JSONObject {
+        val payload = JSONObject().apply {
+            put("album_id", albumId)
+            put("page", page)
+        }
+        return invoke("get_album_comments", payload)
+    }
+
+    /**
      * Get chapter metadata (page list, scramble info) without downloading images.
      * Fast — returns instantly after fetching photo detail.
      * Must be called on a background thread.
