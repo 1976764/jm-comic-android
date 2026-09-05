@@ -24,6 +24,7 @@
             --swedish-red-light: #c95454;
             --bg-body: #faf6f0;
             --bg-card: #ffffff;
+            --bg-arch: #fcfaf7;
             --text-primary: #2c2c2c;
             --text-secondary: #5a5a5a;
             --text-muted: #8a8a8a;
@@ -31,6 +32,29 @@
             --shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
             --radius: 12px;
             --transition: 0.2s ease;
+            color-scheme: light dark;
+        }
+
+        /* ===== 暗色主题：默认跟随系统主题 ===== */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-body: #171514;
+                --bg-card: #242120;
+                --bg-arch: #1d1b1a;
+                --text-primary: #f2efec;
+                --text-secondary: #c2bdb8;
+                --text-muted: #918a84;
+                --border-light: #3a3532;
+                --shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
+            }
+
+            .card:hover {
+                box-shadow: 0 8px 24px rgba(158, 42, 43, 0.18);
+            }
+
+            .feature-card:hover {
+                box-shadow: 0 4px 12px rgba(158, 42, 43, 0.14);
+            }
         }
 
         body {
@@ -40,6 +64,7 @@
             line-height: 1.5;
             padding: 2.5rem 1.5rem;
             min-height: 100vh;
+            transition: background-color var(--transition), color var(--transition);
             display: flex;
             justify-content: center;
         }
@@ -372,7 +397,7 @@
             white-space: pre-wrap;
             overflow-x: auto;
             line-height: 1.6;
-            background-color: #fcfaf7;
+            background-color: var(--bg-arch);
         }
 
         .arch-block .highlight {
@@ -430,275 +455,275 @@
 </head>
 <body>
 
-    <div class="container">
+<div class="container">
 
-        <!-- ===== HEADER ===== -->
-        <header class="header">
-            <div class="header-left">
-                <h1>jm-comic <span>· Android</span></h1>
-            </div>
-            <div class="header-badges">
-                <span class="badge"><i class="fab fa-github"></i> 1976764/jm-comic-android</span>
-                <span class="badge"><i class="fas fa-code"></i> Kotlin + Python</span>
-                <span class="badge"><i class="fas fa-balance-scale"></i> <span class="license">PolyForm Noncommercial</span></span>
-            </div>
-        </header>
+    <!-- ===== HEADER ===== -->
+    <header class="header">
+        <div class="header-left">
+            <h1>jm-comic <span>· Android</span></h1>
+        </div>
+        <div class="header-badges">
+            <span class="badge"><i class="fab fa-github"></i> 1976764/jm-comic-android</span>
+            <span class="badge"><i class="fas fa-code"></i> Kotlin + Python</span>
+            <span class="badge"><i class="fas fa-balance-scale"></i> <span class="license">PolyForm Noncommercial</span></span>
+        </div>
+    </header>
 
-        <!-- ===== DASHBOARD ===== -->
-        <div class="dashboard-grid">
-            <!-- 左侧：活跃人数 -->
-            <div class="card">
-                <div class="card-title">
-                    <i class="fas fa-chart-line"></i> 今日活跃人数
-                </div>
-                <div class="active-container">
-                    <div class="active-number" id="activeCount">0</div>
-                    <div class="active-meta">
-                        <span class="status-dot"></span> 今日上线
-                        <span class="update-time" id="updateTime">更新于: 刚刚</span>
-                    </div>
-                </div>
+    <!-- ===== DASHBOARD ===== -->
+    <div class="dashboard-grid">
+        <!-- 左侧：活跃人数 -->
+        <div class="card">
+            <div class="card-title">
+                <i class="fas fa-chart-line"></i> 今日活跃人数
             </div>
-
-            <!-- 右侧：项目速览 -->
-            <div class="card">
-                <div class="card-title">
-                    <i class="fas fa-cubes"></i> 项目速览
-                </div>
-                <div class="stats-grid">
-                    <div class="stat-item">
-                        <span class="label"><i class="fas fa-star"></i> Stars</span>
-                        <span class="value" id="starCount">—</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="label"><i class="fas fa-code-branch"></i> 技术栈</span>
-                        <span class="value" style="font-size: 0.9rem;">Compose + Chaquopy</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="label"><i class="fas fa-calendar-alt"></i> 最后更新</span>
-                        <span class="value" style="font-size: 0.9rem;">2026-09-03</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="label"><i class="fas fa-shield-alt"></i> 许可证</span>
-                        <span class="value" style="font-size: 0.85rem;">PolyForm 1.0.0</span>
-                    </div>
+            <div class="active-container">
+                <div class="active-number" id="activeCount">0</div>
+                <div class="active-meta">
+                    <span class="status-dot"></span> 今日上线
+                    <span class="update-time" id="updateTime">更新于: 刚刚</span>
                 </div>
             </div>
         </div>
 
-        <!-- ===== 项目简介 ===== -->
-        <section class="section">
-            <div class="section-title">
-                <i class="fas fa-info-circle"></i> 项目简介
+        <!-- 右侧：项目速览 -->
+        <div class="card">
+            <div class="card-title">
+                <i class="fas fa-cubes"></i> 项目速览
             </div>
-            <div class="desc-block">
-                <p>
-                    <strong>JM Comic</strong> 是一款基于 Android 原生开发的漫画阅读客户端，
-                    采用 <strong>Jetpack Compose + Python</strong> 混合架构。
-                    通过 <strong>Chaquopy</strong> 将 Python <code>jmcomic</code> 库嵌入 Android 原生应用，
-                    实现漫画的搜索、浏览、阅读与下载功能。
-                </p>
-                <p>
-                    前端使用 Jetpack Compose 构建 Material 3 风格的现代化 UI，
-                    后端通过 Python 桥接层调用 jmcomic 库完成数据获取与图片处理。
-                </p>
-                <div class="tech-tags">
-                    <span><i class="fab fa-android"></i> Android</span>
-                    <span><i class="fas fa-mobile-alt"></i> Kotlin</span>
-                    <span><i class="fab fa-python"></i> Python 3.13+</span>
-                    <span><i class="fab fa-layer-group"></i> Jetpack Compose</span>
-                    <span><i class="fas fa-cubes"></i> MVVM</span>
-                    <span><i class="fas fa-cloud"></i> Chaquopy 17.0.0</span>
-                    <span><i class="fas fa-image"></i> Coil 2.7.0</span>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <span class="label"><i class="fas fa-star"></i> Stars</span>
+                    <span class="value" id="starCount">—</span>
+                </div>
+                <div class="stat-item">
+                    <span class="label"><i class="fas fa-code-branch"></i> 技术栈</span>
+                    <span class="value" style="font-size: 0.9rem;">Compose + Chaquopy</span>
+                </div>
+                <div class="stat-item">
+                    <span class="label"><i class="fas fa-calendar-alt"></i> 最后更新</span>
+                    <span class="value" style="font-size: 0.9rem;">2026-09-03</span>
+                </div>
+                <div class="stat-item">
+                    <span class="label"><i class="fas fa-shield-alt"></i> 许可证</span>
+                    <span class="value" style="font-size: 0.85rem;">PolyForm 1.0.0</span>
                 </div>
             </div>
-        </section>
-
-        <!-- ===== 核心功能（3列2行居中） ===== -->
-        <section class="section">
-            <div class="section-title">
-                <i class="fas fa-th-list"></i> 核心功能
-            </div>
-            <div class="feature-grid">
-                <div class="feature-card">
-                    <div class="icon"><i class="fas fa-home"></i></div>
-                    <h4>首页 &amp; 分类</h4>
-                    <p>2 列网格无限滚动，按标签分类浏览。</p>
-                </div>
-                <div class="feature-card">
-                    <div class="icon"><i class="fas fa-search"></i></div>
-                    <h4>搜索</h4>
-                    <p>关键词实时搜索漫画。</p>
-                </div>
-                <div class="feature-card">
-                    <div class="icon"><i class="fas fa-book-open"></i></div>
-                    <h4>详情 &amp; 阅读器</h4>
-                    <p>封面、章节列表，连续滚动阅读。</p>
-                </div>
-                <div class="feature-card">
-                    <div class="icon"><i class="fas fa-user"></i></div>
-                    <h4>用户系统</h4>
-                    <p>登录、Cookie 恢复、收藏管理。</p>
-                </div>
-                <div class="feature-card">
-                    <div class="icon"><i class="fas fa-download"></i></div>
-                    <h4>下载管理</h4>
-                    <p>离线下载，实时进度。</p>
-                </div>
-                <div class="feature-card">
-                    <div class="icon"><i class="fas fa-robot"></i></div>
-                    <h4>混合架构</h4>
-                    <p>Kotlin + Python 桥接。</p>
-                </div>
-            </div>
-        </section>
-
-        <!-- ===== 架构设计 ===== -->
-        <section class="section">
-            <div class="section-title">
-                <i class="fas fa-sitemap"></i> 架构设计
-            </div>
-            <div class="arch-block">
-┌─────────────────────────────────────────┐
-│ <span class="highlight">UI Layer (Compose)</span>          │
-│ HomeScreen / ReaderScreen / Profile     │
-│ SearchScreen / DetailScreen / ...       │
-└──────────────┬──────────────────────────┘
-               │ <span class="highlight">StateFlow</span>
-┌──────────────▼──────────────────────────┐
-│ <span class="highlight">ViewModel Layer</span>              │
-│ HomeViewModel / ReaderViewModel /       │
-│ AuthViewModel / FavoritesViewModel /    │
-│ ComicDetailViewModel / ...              │
-└──────────────┬──────────────────────────┘
-               │ <span class="highlight">Function Call</span>
-┌──────────────▼──────────────────────────┐
-│ <span class="highlight">Kotlin Data Layer</span>           │
-│ PythonService / CacheManager /          │
-│ DownloadManager / DownloadService       │
-└──────────────┬──────────────────────────┘
-               │ <span class="highlight">Chaquopy RPC</span>
-┌──────────────▼──────────────────────────┐
-│ <span class="highlight">Python Bridge (jm_bridge.py)</span> │
-│ jmcomic 库调用 / 图片下载与处理 /      │
-│ 会话管理 / 批量并发下载                 │
-└─────────────────────────────────────────┘
-            </div>
-        </section>
-
-        <!-- ===== FOOTER ===== -->
-        <div class="footer-links">
-            <a href="https://github.com/1976764/jm-comic-android" target="_blank">
-                <i class="fab fa-github"></i> GitHub 仓库
-            </a>
-            <a href="https://github.com/1976764/jm-comic-android/blob/main/README.md" target="_blank">
-                <i class="fas fa-book"></i> README
-            </a>
-            <a href="https://github.com/1976764/jm-comic-android/blob/main/LICENSE" target="_blank">
-                <i class="fas fa-balance-scale"></i> 许可证
-            </a>
-            <span class="muted"><i class="fas fa-code"></i> 仅供学习交流</span>
         </div>
-
     </div>
 
-    <script>
-        // ============================================================
-        //  今日活跃人数（从 Cloudflare Worker 获取真实数据）
-        // ============================================================
-        const activeEl = document.getElementById('activeCount');
-        const timeEl = document.getElementById('updateTime');
+    <!-- ===== 项目简介 ===== -->
+    <section class="section">
+        <div class="section-title">
+            <i class="fas fa-info-circle"></i> 项目简介
+        </div>
+        <div class="desc-block">
+            <p>
+                <strong>JM Comic</strong> 是一款基于 Android 原生开发的漫画阅读客户端，
+                采用 <strong>Jetpack Compose + Python</strong> 混合架构。
+                通过 <strong>Chaquopy</strong> 将 Python <code>jmcomic</code> 库嵌入 Android 原生应用，
+                实现漫画的搜索、浏览、阅读与下载功能。
+            </p>
+            <p>
+                前端使用 Jetpack Compose 构建 Material 3 风格的现代化 UI，
+                后端通过 Python 桥接层调用 jmcomic 库完成数据获取与图片处理。
+            </p>
+            <div class="tech-tags">
+                <span><i class="fab fa-android"></i> Android</span>
+                <span><i class="fas fa-mobile-alt"></i> Kotlin</span>
+                <span><i class="fab fa-python"></i> Python 3.13+</span>
+                <span><i class="fab fa-layer-group"></i> Jetpack Compose</span>
+                <span><i class="fas fa-cubes"></i> MVVM</span>
+                <span><i class="fas fa-cloud"></i> Chaquopy 17.0.0</span>
+                <span><i class="fas fa-image"></i> Coil 2.7.0</span>
+            </div>
+        </div>
+    </section>
 
-        // ★ 修改成你的 Cloudflare Worker 地址 ★
-        const ACTIVE_API_URL = 'https://jm-api.xinsis.com/api/stats';
+    <!-- ===== 核心功能（3列2行居中） ===== -->
+    <section class="section">
+        <div class="section-title">
+            <i class="fas fa-th-list"></i> 核心功能
+        </div>
+        <div class="feature-grid">
+            <div class="feature-card">
+                <div class="icon"><i class="fas fa-home"></i></div>
+                <h4>首页 &amp; 分类</h4>
+                <p>2 列网格无限滚动，按标签分类浏览。</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon"><i class="fas fa-search"></i></div>
+                <h4>搜索</h4>
+                <p>关键词实时搜索漫画。</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon"><i class="fas fa-book-open"></i></div>
+                <h4>详情 &amp; 阅读器</h4>
+                <p>封面、章节列表，连续滚动阅读。</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon"><i class="fas fa-user"></i></div>
+                <h4>用户系统</h4>
+                <p>登录、Cookie 恢复、收藏管理。</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon"><i class="fas fa-download"></i></div>
+                <h4>下载管理</h4>
+                <p>离线下载，实时进度。</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon"><i class="fas fa-robot"></i></div>
+                <h4>混合架构</h4>
+                <p>Kotlin + Python 桥接。</p>
+            </div>
+        </div>
+    </section>
 
-        async function fetchActiveUsers() {
-            const response = await fetch(ACTIVE_API_URL, {
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json'
-                },
-                cache: 'no-store'
-            });
+    <!-- ===== 架构设计 ===== -->
+    <section class="section">
+        <div class="section-title">
+            <i class="fas fa-sitemap"></i> 架构设计
+        </div>
+        <div class="arch-block">
+            ┌─────────────────────────────────────────┐
+            │ <span class="highlight">UI Layer (Compose)</span>          │
+            │ HomeScreen / ReaderScreen / Profile     │
+            │ SearchScreen / DetailScreen / ...       │
+            └──────────────┬──────────────────────────┘
+            │ <span class="highlight">StateFlow</span>
+            ┌──────────────▼──────────────────────────┐
+            │ <span class="highlight">ViewModel Layer</span>              │
+            │ HomeViewModel / ReaderViewModel /       │
+            │ AuthViewModel / FavoritesViewModel /    │
+            │ ComicDetailViewModel / ...              │
+            └──────────────┬──────────────────────────┘
+            │ <span class="highlight">Function Call</span>
+            ┌──────────────▼──────────────────────────┐
+            │ <span class="highlight">Kotlin Data Layer</span>           │
+            │ PythonService / CacheManager /          │
+            │ DownloadManager / DownloadService       │
+            └──────────────┬──────────────────────────┘
+            │ <span class="highlight">Chaquopy RPC</span>
+            ┌──────────────▼──────────────────────────┐
+            │ <span class="highlight">Python Bridge (jm_bridge.py)</span> │
+            │ jmcomic 库调用 / 图片下载与处理 /      │
+            │ 会话管理 / 批量并发下载                 │
+            └─────────────────────────────────────────┘
+        </div>
+    </section>
 
-            if (!response.ok) {
-                throw new Error(`API 请求失败: ${response.status}`);
-            }
+    <!-- ===== FOOTER ===== -->
+    <div class="footer-links">
+        <a href="https://github.com/1976764/jm-comic-android" target="_blank">
+            <i class="fab fa-github"></i> GitHub 仓库
+        </a>
+        <a href="https://github.com/1976764/jm-comic-android/blob/main/README.md" target="_blank">
+            <i class="fas fa-book"></i> README
+        </a>
+        <a href="https://github.com/1976764/jm-comic-android/blob/main/LICENSE" target="_blank">
+            <i class="fas fa-balance-scale"></i> 许可证
+        </a>
+        <span class="muted"><i class="fas fa-code"></i> 仅供学习交流</span>
+    </div>
 
-            const result = await response.json();
+</div>
 
-            if (!result.success || !Array.isArray(result.data)) {
-                throw new Error('API 返回数据格式错误');
-            }
+<script>
+    // ============================================================
+    //  今日活跃人数（从 Cloudflare Worker 获取真实数据）
+    // ============================================================
+    const activeEl = document.getElementById('activeCount');
+    const timeEl = document.getElementById('updateTime');
 
-            // 找到今天的数据
-            const today = new Intl.DateTimeFormat('en-CA', {
-                timeZone: 'Asia/Shanghai',
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit'
-            }).format(new Date());
+    // ★ 修改成你的 Cloudflare Worker 地址 ★
+    const ACTIVE_API_URL = 'https://jm-api.xinsis.com/api/stats';
 
-            const todayData = result.data.find(item => item.date === today);
-
-            // 今天还没有用户访问时显示 0
-            return todayData ? Number(todayData.visitors) : 0;
-        }
-
-        function updateActiveUI(value) {
-            if (value !== null && Number.isFinite(value)) {
-                activeEl.textContent = Math.max(0, Math.round(value)).toLocaleString();
-            }
-
-            const now = new Date();
-            timeEl.textContent =
-                `更新于: ${now.toLocaleTimeString('zh-CN', {
-                    hour12: false
-                })}`;
-        }
-
-        async function refreshActive() {
-            activeEl.style.opacity = '0.5';
-
-            try {
-                const value = await fetchActiveUsers();
-                updateActiveUI(value);
-            } catch (error) {
-                console.error('获取今日活跃人数失败:', error);
-
-                // 获取失败时不使用模拟数据，保留当前显示值
-                timeEl.textContent = '更新失败';
-            } finally {
-                activeEl.style.opacity = '1';
-            }
-        }
-
-        // 初始加载 + 每 30 秒刷新一次
-        window.addEventListener('DOMContentLoaded', () => {
-            refreshActive();
-            setInterval(refreshActive, 30000);
+    async function fetchActiveUsers() {
+        const response = await fetch(ACTIVE_API_URL, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json'
+            },
+            cache: 'no-store'
         });
 
-        // ============================================================
-        //  获取真实的 Stars（GitHub API）
-        // ============================================================
-        (function fetchGitHubStars() {
-            const starEl = document.getElementById('starCount');
-            const repo = '1976764/jm-comic-android';
+        if (!response.ok) {
+            throw new Error(`API 请求失败: ${response.status}`);
+        }
 
-            fetch(`https://api.github.com/repos/${repo}`)
-                .then(res => {
-                    if (!res.ok) throw new Error('GitHub API 请求失败');
-                    return res.json();
-                })
-                .then(data => {
-                    const stars = data.stargazers_count;
-                    starEl.textContent = stars.toLocaleString();
-                })
-                .catch(() => {
-                    starEl.textContent = '⭐ 1.2k (模拟)';
-                });
-        })();
-    </script>
+        const result = await response.json();
+
+        if (!result.success || !Array.isArray(result.data)) {
+            throw new Error('API 返回数据格式错误');
+        }
+
+        // 找到今天的数据
+        const today = new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'Asia/Shanghai',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+        }).format(new Date());
+
+        const todayData = result.data.find(item => item.date === today);
+
+        // 今天还没有用户访问时显示 0
+        return todayData ? Number(todayData.visitors) : 0;
+    }
+
+    function updateActiveUI(value) {
+        if (value !== null && Number.isFinite(value)) {
+            activeEl.textContent = Math.max(0, Math.round(value)).toLocaleString();
+        }
+
+        const now = new Date();
+        timeEl.textContent =
+            `更新于: ${now.toLocaleTimeString('zh-CN', {
+                hour12: false
+            })}`;
+    }
+
+    async function refreshActive() {
+        activeEl.style.opacity = '0.5';
+
+        try {
+            const value = await fetchActiveUsers();
+            updateActiveUI(value);
+        } catch (error) {
+            console.error('获取今日活跃人数失败:', error);
+
+            // 获取失败时不使用模拟数据，保留当前显示值
+            timeEl.textContent = '更新失败';
+        } finally {
+            activeEl.style.opacity = '1';
+        }
+    }
+
+    // 初始加载 + 每 30 秒刷新一次
+    window.addEventListener('DOMContentLoaded', () => {
+        refreshActive();
+        setInterval(refreshActive, 30000);
+    });
+
+    // ============================================================
+    //  获取真实的 Stars（GitHub API）
+    // ============================================================
+    (function fetchGitHubStars() {
+        const starEl = document.getElementById('starCount');
+        const repo = '1976764/jm-comic-android';
+
+        fetch(`https://api.github.com/repos/${repo}`)
+            .then(res => {
+                if (!res.ok) throw new Error('GitHub API 请求失败');
+                return res.json();
+            })
+            .then(data => {
+                const stars = data.stargazers_count;
+                starEl.textContent = stars.toLocaleString();
+            })
+            .catch(() => {
+                starEl.textContent = '⭐ 1.2k (模拟)';
+            });
+    })();
+</script>
 </body>
 </html>
