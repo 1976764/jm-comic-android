@@ -47,6 +47,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,9 +63,11 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.launch
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.carya.jm.data.download.DownloadProgress
+import com.carya.jm.ui.components.BackToTopButton
 import com.carya.jm.data.model.ComicDetail
 import com.carya.jm.data.model.ComicItem
 
@@ -93,6 +96,11 @@ fun ComicDetailScreen(
     val commentsState by viewModel.commentsState.collectAsState()
     var selectedTab by remember { mutableIntStateOf(0) }
     val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+
+    val showBackToTop by remember {
+        derivedStateOf { listState.firstVisibleItemIndex > 0 }
+    }
 
     val lastVisibleIndex by remember(listState) {
         derivedStateOf {
@@ -183,17 +191,26 @@ fun ComicDetailScreen(
 
         when {
             detail != null -> {
-                LazyColumn(
-                    state = listState,
+                Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(innerPadding),
                 ) {
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier.fillMaxSize(),
+                    ) {
                     // --- Header (cover, title, tags, description, read button) ---
                     item(key = "header") {
                         DetailHeader(
                             detail = detail,
-                            onReadChapter = onReadChapter,
+                            onReadChapter = { photoId, episodes ->
+                                val firstEp = detail.episodes.firstOrNull()
+                                if (firstEp != null) {
+                                    viewModel.recordReadHistory(firstEp.id, firstEp.title)
+                                }
+                                onReadChapter(photoId, episodes)
+                            },
                         )
                     }
 
@@ -240,7 +257,10 @@ fun ComicDetailScreen(
                             ) { ep ->
                                 EpisodeItem(
                                     ep = ep,
-                                    onClick = { onReadChapter(ep.id, detail.episodes) },
+                                    onClick = {
+                                        viewModel.recordReadHistory(ep.id, ep.title)
+                                        onReadChapter(ep.id, detail.episodes)
+                                    },
                                 )
                             }
                         }
@@ -448,6 +468,17 @@ fun ComicDetailScreen(
                     item(key = "bottomSpacer") {
                         Spacer(modifier = Modifier.height(32.dp))
                     }
+                }
+
+                    BackToTopButton(
+                        visible = showBackToTop,
+                        onClick = {
+                            scope.launch { listState.animateScrollToItem(0) }
+                        },
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(16.dp),
+                    )
                 }
             }
 

@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
@@ -57,6 +58,7 @@ fun ProfileScreen(
     onLoginClick: () -> Unit,
     onComicClick: (com.carya.jm.data.model.ComicItem) -> Unit,
     onMoreFavorites: () -> Unit,
+    onHistoryClick: () -> Unit,
     onDownloadClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onAboutClick: () -> Unit,
@@ -110,6 +112,7 @@ fun ProfileScreen(
             favoritesError = profileState.favoritesError,
             onComicClick = onComicClick,
             onMoreFavorites = onMoreFavorites,
+            onHistoryClick = onHistoryClick,
             onDownloadClick = onDownloadClick,
             onSettingsClick = onSettingsClick,
             onAboutClick = onAboutClick,
@@ -132,6 +135,7 @@ private fun ProfileContent(
     favoritesError: String?,
     onComicClick: (com.carya.jm.data.model.ComicItem) -> Unit,
     onMoreFavorites: () -> Unit,
+    onHistoryClick: () -> Unit,
     onDownloadClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onAboutClick: () -> Unit,
@@ -272,6 +276,14 @@ private fun ProfileContent(
                     icon = Icons.Default.Settings,
                     title = "设置",
                     onClick = onSettingsClick,
+                )
+            }
+
+            item {
+                SettingsItem(
+                    icon = Icons.Default.History,
+                    title = "观看历史",
+                    onClick = onHistoryClick,
                 )
             }
 

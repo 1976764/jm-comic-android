@@ -80,6 +80,7 @@ private object Routes {
     const val LOGIN = "login"
     const val SEARCH = "search"
     const val FAVORITES = "favorites"
+    const val HISTORY = "history"
     const val DOWNLOAD = "download"
     const val SETTINGS = "settings"
     const val ABOUT = "about"
@@ -150,6 +151,9 @@ fun AppNavigation() {
                 },
                 onMoreFavorites = {
                     navController.navigate(Routes.FAVORITES)
+                },
+                onHistoryClick = {
+                    navController.navigate(Routes.HISTORY)
                 },
                 onDownloadClick = {
                     navController.navigate(Routes.DOWNLOAD)
@@ -225,6 +229,15 @@ fun AppNavigation() {
                 onBack = { navController.popBackStack() },
             )
         }
+        composable(Routes.HISTORY) {
+            com.carya.jm.ui.profile.HistoryScreen(
+                onComicClick = { item ->
+                    ComicDetailNav.pendingItem = item
+                    navController.navigate(Routes.detail(item.id))
+                },
+                onBack = { navController.popBackStack() },
+            )
+        }
         composable(Routes.DOWNLOAD) {
             com.carya.jm.ui.download.DownloadScreen(
                 onBack = { navController.popBackStack() },
@@ -273,6 +286,7 @@ private fun MainScreen(
     onSearchClick: () -> Unit,
     onCategoryClick: (label: String) -> Unit,
     onMoreFavorites: () -> Unit,
+    onHistoryClick: () -> Unit,
     onDownloadClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onAboutClick: () -> Unit,
@@ -316,6 +330,7 @@ private fun MainScreen(
                 onLoginClick = onLoginClick,
                 onComicClick = onComicClick,
                 onMoreFavorites = onMoreFavorites,
+                onHistoryClick = onHistoryClick,
                 onDownloadClick = onDownloadClick,
                 onSettingsClick = onSettingsClick,
                 onAboutClick = onAboutClick,

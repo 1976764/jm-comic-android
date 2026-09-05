@@ -51,6 +51,78 @@ class CacheManager private constructor(private val cacheDir: File) {
         return readItemList(file)
     }
 
+    // ---- Reading history ----
+
+    /** 历史记录版本号：每次写入 +1，供同会话 UI 监听变化后重新读缓存。 */
+    private val _historyVersion = kotlinx.coroutines.flow.MutableStateFlow(0)
+    val historyVersion: kotlinx.coroutines.flow.StateFlow<Int> = _historyVersion
+
+    /** 最多保留的历史记录条数。 */
+    private val maxHistorySize = 100
+
+    /**
+     * 记录一次观看：点击开始阅读或选择章节进入阅读器时调用。
+     * 若该漫画已在历史中，则更新到最前面并更新章节信息和时间。
+     */
+    fun addHistory(
+        albumId: String,
+        title: String,
+        author: String,
+        coverUrl: String,
+        chapterId: String,
+        chapterTitle: String,
+    ) {
+        val current = getHistory()
+        val now = System.currentTimeMillis()
+
+        val newItem = JSONObject().apply {
+            put("album_id", albumId)
+            put("title", title)
+            put("author", author)
+            put("cover_url", coverUrl)
+            put("chapter_id", chapterId)
+            put("chapter_title", chapterTitle)
+            put("last_read_at", now)
+        }
+
+        val filtered = current.filter { it.optString("album_id") != albumId }
+        val result = listOf(newItem) + filtered
+        val trimmed = result.take(maxHistorySize)
+
+        writeHistoryList(trimmed)
+        _historyVersion.value += 1
+    }
+
+    /** 获取全部历史记录，按阅读时间倒序（最新在前）。 */
+    fun getHistory(): List<JSONObject> {
+        val file = File(cacheDir, "history.json")
+        if (!file.exists()) return emptyList()
+        return try {
+            val json = JSONObject(file.readText())
+            val arr = json.optJSONArray("items") ?: return emptyList()
+            (0 until arr.length()).map { arr.getJSONObject(it) }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    /** 清空全部观看历史。 */
+    fun clearHistory() {
+        val file = File(cacheDir, "history.json")
+        if (file.exists()) file.delete()
+        _historyVersion.value += 1
+    }
+
+    private fun writeHistoryList(items: List<JSONObject>) {
+        val file = File(cacheDir, "history.json")
+        val arr = JSONArray()
+        items.forEach { arr.put(it) }
+        JSONObject().apply {
+            put("items", arr)
+            put("cached_at", System.currentTimeMillis())
+        }.toString().let { file.writeText(it) }
+    }
+
     // ---- Favorites ----
 
     /** 收藏缓存版本号：每次写缓存 +1，供同会话 UI（我的页等）监听到变化后重新读缓存。 */

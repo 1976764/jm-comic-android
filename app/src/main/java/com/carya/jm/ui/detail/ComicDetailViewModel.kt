@@ -412,4 +412,22 @@ class ComicDetailViewModel(
             )
         }
     }
+
+    /**
+     * 记录观看历史：用户点击开始阅读或选择章节进入阅读器时调用。
+     * 在 IO 线程异步写入，不阻塞导航。
+     */
+    fun recordReadHistory(chapterId: String, chapterTitle: String) {
+        val detail = _state.value.detail ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            CacheManager.get().addHistory(
+                albumId = detail.id,
+                title = detail.title,
+                author = detail.author,
+                coverUrl = detail.coverUrl,
+                chapterId = chapterId,
+                chapterTitle = chapterTitle,
+            )
+        }
+    }
 }
