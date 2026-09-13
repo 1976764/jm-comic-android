@@ -709,13 +709,15 @@
     //  配置
     // ============================================================
     const STATS_API = 'https://jm-api.xinsis.com/api/stats?days=30';
+    const REFRESH_INTERVAL = 30000; // 30 秒
 
     // ============================================================
     //  状态
     // ============================================================
-    let chartInstance = null;       // Chart.js 实例
-    let statsDataCache = null;      // 缓存接口数据
-    let isChartReady = false;       // 图表是否已就绪
+    let chartInstance = null;        // Chart.js 实例
+    let statsDataCache = null;       // 缓存接口数据
+    let chartSignature = null;       // 图表当前所绘制数据的指纹
+    let currentDates = [];           // 当前图表对应的完整日期数组（供 tooltip 使用）
 
     // DOM
     const activeEl = document.getElementById('activeCount');
@@ -744,6 +746,16 @@
     function formatShortDate(dateStr) {
         const parts = dateStr.split('-');
         return parts[1] + '/' + parts[2];
+    }
+
+    /**
+     * 生成数据指纹。
+     * 只要任意一天的日期或人数发生变化，指纹就会改变，
+     * 用于判断“是否需要重绘图表”。
+     */
+    function computeSignature(data) {
+        if (!Array.isArray(data) || data.length === 0) return '';
+        return data.map(d => `${d.date}:${d.visitors}`).join('|');
     }
 
     /** 根据当前主题获取图表颜色配置 */
@@ -789,7 +801,7 @@
     }
 
     // ============================================================
-    //  更新今日活跃人数（从 30 天数据中提取今天的数据）
+    //  更新今日活跃人数
     // ============================================================
 
     function updateActiveFromStats(data) {
@@ -807,34 +819,62 @@
     }
 
     // ============================================================
-    //  初始化 / 更新折线图
+    //  创建 / 更新折线图
+    //  - 首次调用：创建 Chart 实例
+    //  - 后续调用：原地更新数据（无闪烁），并同步主题颜色
     // ============================================================
 
     function buildChart(data) {
         const colors = getChartColors();
         const labels = data.map(d => formatShortDate(d.date));
         const values = data.map(d => Number(d.visitors));
+        const signature = computeSignature(data);
+
+        // 更新 tooltip 用的完整日期
+        currentDates = data.map(d => d.date);
 
         // 更新范围文字
         if (data.length >= 2) {
-            const first = formatShortDate(data[0].date);
-            const last = formatShortDate(data[data.length - 1].date);
-            popupRange.textContent = `${first} — ${last}`;
+            popupRange.textContent =
+                `${formatShortDate(data[0].date)} — ${formatShortDate(data[data.length - 1].date)}`;
         }
 
         // 隐藏 loading，显示 canvas
         popupLoading.style.display = 'none';
         trendCanvas.style.display = 'block';
 
-        // 如果已有实例，先销毁
+        // ---------- 已有实例：原地更新数据 ----------
         if (chartInstance) {
-            chartInstance.destroy();
-            chartInstance = null;
+            const ds = chartInstance.data.datasets[0];
+
+            chartInstance.data.labels = labels;
+            ds.data = values;
+
+            ds.borderColor = colors.lineColor;
+            ds.pointBackgroundColor = colors.pointColor;
+            ds.pointBorderColor = colors.lineColor;
+            ds.pointHoverBackgroundColor = colors.pointHoverColor;
+            ds.pointHoverBorderColor = colors.lineColor;
+
+            chartInstance.options.plugins.tooltip.backgroundColor = colors.tooltipBg;
+            chartInstance.options.plugins.tooltip.titleColor = colors.tooltipTitle;
+            chartInstance.options.plugins.tooltip.bodyColor = colors.tooltipBody;
+            chartInstance.options.plugins.tooltip.borderColor = colors.tooltipBorder;
+
+            chartInstance.options.scales.x.grid.color = colors.gridColor;
+            chartInstance.options.scales.x.ticks.color = colors.tickColor;
+            chartInstance.options.scales.y.grid.color = colors.gridColor;
+            chartInstance.options.scales.y.ticks.color = colors.tickColor;
+
+            chartInstance.update();
+
+            chartSignature = signature;
+            return;
         }
 
+        // ---------- 首次创建 ----------
         const ctx = trendCanvas.getContext('2d');
 
-        // 创建渐变填充
         const gradient = ctx.createLinearGradient(0, 0, 0, 180);
         gradient.addColorStop(0, colors.fillStart);
         gradient.addColorStop(1, colors.fillEnd);
@@ -883,9 +923,9 @@
                         displayColors: false,
                         callbacks: {
                             title: function (items) {
-                                // 显示完整日期
+                                // 从全局 currentDates 读取，保证数据更新后依然正确
                                 const idx = items[0].dataIndex;
-                                return data[idx].date;
+                                return currentDates[idx] || '';
                             },
                             label: function (item) {
                                 return `活跃人数: ${item.parsed.y.toLocaleString()}`;
@@ -920,7 +960,7 @@
             }
         });
 
-        isChartReady = true;
+        chartSignature = signature;
     }
 
     // ============================================================
@@ -930,7 +970,7 @@
     let showTimer = null;
     let hideTimer = null;
 
-    activeCard.addEventListener('mouseenter', function (e) {
+    activeCard.addEventListener('mouseenter', function () {
         clearTimeout(hideTimer);
 
         // 延迟 180ms 显示，避免快速划过时弹出
@@ -942,13 +982,10 @@
             let left = rect.right + 16;
             let top = rect.top;
 
-            // 如果右侧空间不够，则显示在卡片下方
             if (left + popupWidth > window.innerWidth - 16) {
                 left = rect.left;
                 top = rect.bottom + 12;
             }
-
-            // 确保不超出底部
             if (top + 260 > window.innerHeight) {
                 top = window.innerHeight - 270;
             }
@@ -957,15 +994,21 @@
             chartPopup.style.top = top + 'px';
             chartPopup.classList.add('visible');
 
-            // 如果已有缓存数据，直接渲染
+            // ---------- 已缓存数据 ----------
             if (statsDataCache) {
-                if (!isChartReady) {
-                    buildChart(statsDataCache);
+                const cacheSig = computeSignature(statsDataCache);
+
+                // 图表已存在且数据未变化 → 无需重绘
+                if (chartInstance && chartSignature === cacheSig) {
+                    return;
                 }
+
+                // 数据有变化（或图表尚未创建）→ 用最新数据渲染
+                buildChart(statsDataCache);
                 return;
             }
 
-            // 首次悬停：显示 loading 并拉取数据
+            // ---------- 首次悬停：拉取数据 ----------
             popupLoading.style.display = 'block';
             trendCanvas.style.display = 'none';
             popupRange.textContent = '加载中…';
@@ -988,7 +1031,7 @@
         }, 200);
     });
 
-    // 鼠标移入弹窗时保持显示（避免因离开卡片而关闭）
+    // 鼠标移入弹窗时保持显示
     chartPopup.addEventListener('mouseenter', function () {
         clearTimeout(hideTimer);
     });
@@ -1000,46 +1043,66 @@
     });
 
     // ============================================================
-    //  主题切换时重绘图表
+    //  主题切换：销毁旧实例后重建，保证渐变填充颜色正确
     // ============================================================
 
     window.matchMedia('(prefers-color-scheme: dark)')
         .addEventListener('change', function () {
-            if (chartInstance && statsDataCache) {
+            if (chartInstance) {
+                chartInstance.destroy();
+                chartInstance = null;
+                chartSignature = null;
+            }
+            if (statsDataCache && chartPopup.classList.contains('visible')) {
                 buildChart(statsDataCache);
             }
         });
 
     // ============================================================
-    //  初始化：页面加载时拉取数据，更新今日活跃人数
+    //  初始化 + 定时轮询
     // ============================================================
 
-    (async function init() {
+    /**
+     * 统一的刷新流程：
+     *  1. 拉取最新数据
+     *  2. 与缓存做指纹比对，判断数据是否真的发生变化
+     *  3. 更新今日活跃人数显示
+     *  4. 若数据变化且弹窗可见，则重绘图表
+     */
+    async function refreshStats() {
         try {
             const data = await fetchStats();
+            const newSig = computeSignature(data);
+            const oldSig = statsDataCache ? computeSignature(statsDataCache) : '';
+            const changed = newSig !== oldSig;
+
             statsDataCache = data;
+
+            // 今日人数始终更新
             updateActiveFromStats(data);
-        } catch (err) {
-            console.error('初始化获取活跃数据失败:', err);
-            timeEl.textContent = '更新失败';
-        }
 
-        // 每 60 秒刷新一次今日数据（静默更新，不影响图表）
-        setInterval(async function () {
-            try {
-                const data = await fetchStats();
-                statsDataCache = data;
-                updateActiveFromStats(data);
+            // 数据未变化 → 不需要动图表
+            if (!changed) return;
 
-                // 如果弹窗当前可见且图表已就绪，同步更新图表
-                if (chartPopup.classList.contains('visible') && chartInstance) {
-                    buildChart(data);
-                }
-            } catch (err) {
-                console.error('定时刷新活跃数据失败:', err);
+            // 数据已变化：
+            //  - 弹窗可见 → 立即重绘
+            //  - 弹窗不可见 → 只更新缓存，下次悬停时按指纹自动重绘
+            if (chartPopup.classList.contains('visible')) {
+                buildChart(data);
             }
-        }, 60000);
-    })();
+        } catch (err) {
+            console.error('获取活跃数据失败:', err);
+            if (!statsDataCache) {
+                timeEl.textContent = '更新失败';
+            }
+        }
+    }
+
+    // 初始加载
+    refreshStats();
+
+    // 每 30 秒刷新一次
+    setInterval(refreshStats, REFRESH_INTERVAL);
 
     // ============================================================
     //  获取真实的 Stars（GitHub API）
@@ -1054,8 +1117,7 @@
                 return res.json();
             })
             .then(data => {
-                const stars = data.stargazers_count;
-                starEl.textContent = stars.toLocaleString();
+                starEl.textContent = data.stargazers_count.toLocaleString();
             })
             .catch(() => {
                 starEl.textContent = '⭐ 1.2k (模拟)';
