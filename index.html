@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>JM Comic · Android</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+    <!-- 引入 Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         /* ===== 全局重置 ===== */
         * {
@@ -151,7 +153,6 @@
             padding: 1.8rem 2rem;
             box-shadow: var(--shadow);
             transition: box-shadow var(--transition), transform var(--transition);
-            /* ===== 新增 Flex 布局 ===== */
             display: flex;
             flex-direction: column;
         }
@@ -170,7 +171,7 @@
             display: flex;
             align-items: center;
             gap: 0.6rem;
-            flex-shrink: 0; /* 防止标题被压缩 */
+            flex-shrink: 0;
         }
 
         .card-title i {
@@ -184,10 +185,9 @@
             align-items: center;
             gap: 1.8rem;
             flex-wrap: wrap;
-            /* ===== 新增：填满剩余高度 ===== */
             flex: 1;
-            align-content: center; /* 当换行时垂直居中 */
-            justify-content: flex-start; /* 水平左对齐 */
+            align-content: center;
+            justify-content: flex-start;
         }
 
         .active-number {
@@ -451,6 +451,73 @@
             .arch-block { padding: 1rem; font-size: 0.7rem; }
             .card { padding: 1.2rem; }
         }
+
+        /* ===== 悬浮图表弹窗 ===== */
+        #chartPopup {
+            position: fixed;
+            z-index: 9999;
+            width: 480px;
+            max-width: 90vw;
+            background: var(--bg-card);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+            padding: 1.2rem 1.4rem 1rem;
+            pointer-events: none;
+            opacity: 0;
+            transform: translateY(6px) scale(0.98);
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+
+        #chartPopup.visible {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+
+        #chartPopup .popup-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.6rem;
+        }
+
+        #chartPopup .popup-header span {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        #chartPopup .popup-header span i {
+            color: var(--swedish-red);
+        }
+
+        #chartPopup .popup-header .popup-sub {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            font-weight: 400;
+        }
+
+        #chartPopup canvas {
+            width: 100% !important;
+            height: 180px !important;
+        }
+
+        #chartPopup .popup-loading {
+            text-align: center;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            padding: 2rem 0;
+        }
+
+        /* 暗色模式下的弹窗阴影 */
+        @media (prefers-color-scheme: dark) {
+            #chartPopup {
+                box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+            }
+        }
     </style>
 </head>
 <body>
@@ -471,8 +538,8 @@
 
     <!-- ===== DASHBOARD ===== -->
     <div class="dashboard-grid">
-        <!-- 左侧：活跃人数 -->
-        <div class="card">
+        <!-- 左侧：活跃人数（悬停显示折线图） -->
+        <div class="card" id="activeCard">
             <div class="card-title">
                 <i class="fas fa-chart-line"></i> 今日活跃人数
             </div>
@@ -627,22 +694,84 @@
 
 </div>
 
+<!-- ===== 悬浮图表弹窗 ===== -->
+<div id="chartPopup">
+    <div class="popup-header">
+        <span><i class="fas fa-chart-area"></i> 近30天活跃趋势</span>
+        <span class="popup-sub" id="popupRange">加载中…</span>
+    </div>
+    <canvas id="trendChart"></canvas>
+    <div class="popup-loading" id="popupLoading">正在加载数据…</div>
+</div>
+
 <script>
     // ============================================================
-    //  今日活跃人数（从 Cloudflare Worker 获取真实数据）
+    //  配置
     // ============================================================
+    const STATS_API = 'https://jm-api.xinsis.com/api/stats?days=30';
+
+    // ============================================================
+    //  状态
+    // ============================================================
+    let chartInstance = null;       // Chart.js 实例
+    let statsDataCache = null;      // 缓存接口数据
+    let isChartReady = false;       // 图表是否已就绪
+
+    // DOM
     const activeEl = document.getElementById('activeCount');
     const timeEl = document.getElementById('updateTime');
+    const activeCard = document.getElementById('activeCard');
+    const chartPopup = document.getElementById('chartPopup');
+    const popupLoading = document.getElementById('popupLoading');
+    const popupRange = document.getElementById('popupRange');
+    const trendCanvas = document.getElementById('trendChart');
 
-    // ★ 修改成你的 Cloudflare Worker 地址 ★
-    const ACTIVE_API_URL = 'https://jm-api.xinsis.com/api/stats';
+    // ============================================================
+    //  工具函数
+    // ============================================================
 
-    async function fetchActiveUsers() {
-        const response = await fetch(ACTIVE_API_URL, {
+    /** 获取当前上海时间的 YYYY-MM-DD */
+    function getTodayStr() {
+        return new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'Asia/Shanghai',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+        }).format(new Date());
+    }
+
+    /** 格式化日期为 MM/DD */
+    function formatShortDate(dateStr) {
+        const parts = dateStr.split('-');
+        return parts[1] + '/' + parts[2];
+    }
+
+    /** 根据当前主题获取图表颜色配置 */
+    function getChartColors() {
+        const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        return {
+            lineColor: '#9e2a2b',
+            pointColor: '#9e2a2b',
+            pointHoverColor: '#c95454',
+            fillStart: 'rgba(158, 42, 43, 0.18)',
+            fillEnd: 'rgba(158, 42, 43, 0.02)',
+            gridColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
+            tickColor: isDark ? '#918a84' : '#8a8a8a',
+            tooltipBg: isDark ? 'rgba(36, 33, 32, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+            tooltipTitle: isDark ? '#f2efec' : '#2c2c2c',
+            tooltipBody: isDark ? '#c2bdb8' : '#5a5a5a',
+            tooltipBorder: isDark ? '#3a3532' : '#e6e0d8'
+        };
+    }
+
+    // ============================================================
+    //  数据获取
+    // ============================================================
+
+    async function fetchStats() {
+        const response = await fetch(STATS_API, {
             method: 'GET',
-            headers: {
-                'Accept': 'application/json'
-            },
+            headers: { 'Accept': 'application/json' },
             cache: 'no-store'
         });
 
@@ -656,53 +785,261 @@
             throw new Error('API 返回数据格式错误');
         }
 
-        // 找到今天的数据
-        const today = new Intl.DateTimeFormat('en-CA', {
-            timeZone: 'Asia/Shanghai',
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit'
-        }).format(new Date());
-
-        const todayData = result.data.find(item => item.date === today);
-
-        // 今天还没有用户访问时显示 0
-        return todayData ? Number(todayData.visitors) : 0;
+        return result.data; // [{ date: '2026-09-13', visitors: 123 }, ...]
     }
 
-    function updateActiveUI(value) {
-        if (value !== null && Number.isFinite(value)) {
-            activeEl.textContent = Math.max(0, Math.round(value)).toLocaleString();
+    // ============================================================
+    //  更新今日活跃人数（从 30 天数据中提取今天的数据）
+    // ============================================================
+
+    function updateActiveFromStats(data) {
+        const today = getTodayStr();
+        const todayData = data.find(item => item.date === today);
+        const count = todayData ? Number(todayData.visitors) : 0;
+
+        if (Number.isFinite(count)) {
+            activeEl.textContent = Math.max(0, Math.round(count)).toLocaleString();
         }
 
         const now = new Date();
         timeEl.textContent =
-            `更新于: ${now.toLocaleTimeString('zh-CN', {
-                hour12: false
-            })}`;
+            `更新于: ${now.toLocaleTimeString('zh-CN', { hour12: false })}`;
     }
 
-    async function refreshActive() {
-        activeEl.style.opacity = '0.5';
+    // ============================================================
+    //  初始化 / 更新折线图
+    // ============================================================
 
-        try {
-            const value = await fetchActiveUsers();
-            updateActiveUI(value);
-        } catch (error) {
-            console.error('获取今日活跃人数失败:', error);
+    function buildChart(data) {
+        const colors = getChartColors();
+        const labels = data.map(d => formatShortDate(d.date));
+        const values = data.map(d => Number(d.visitors));
 
-            // 获取失败时不使用模拟数据，保留当前显示值
-            timeEl.textContent = '更新失败';
-        } finally {
-            activeEl.style.opacity = '1';
+        // 更新范围文字
+        if (data.length >= 2) {
+            const first = formatShortDate(data[0].date);
+            const last = formatShortDate(data[data.length - 1].date);
+            popupRange.textContent = `${first} — ${last}`;
         }
+
+        // 隐藏 loading，显示 canvas
+        popupLoading.style.display = 'none';
+        trendCanvas.style.display = 'block';
+
+        // 如果已有实例，先销毁
+        if (chartInstance) {
+            chartInstance.destroy();
+            chartInstance = null;
+        }
+
+        const ctx = trendCanvas.getContext('2d');
+
+        // 创建渐变填充
+        const gradient = ctx.createLinearGradient(0, 0, 0, 180);
+        gradient.addColorStop(0, colors.fillStart);
+        gradient.addColorStop(1, colors.fillEnd);
+
+        chartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: '活跃人数',
+                    data: values,
+                    borderColor: colors.lineColor,
+                    borderWidth: 2,
+                    pointBackgroundColor: colors.pointColor,
+                    pointBorderColor: colors.lineColor,
+                    pointHoverBackgroundColor: colors.pointHoverColor,
+                    pointHoverBorderColor: colors.lineColor,
+                    pointRadius: 2,
+                    pointHoverRadius: 5,
+                    tension: 0.35,
+                    fill: true,
+                    backgroundColor: gradient,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: {
+                    duration: 600,
+                    easing: 'easeOutQuart'
+                },
+                interaction: {
+                    mode: 'index',
+                    intersect: false
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: colors.tooltipBg,
+                        titleColor: colors.tooltipTitle,
+                        bodyColor: colors.tooltipBody,
+                        borderColor: colors.tooltipBorder,
+                        borderWidth: 1,
+                        padding: 10,
+                        cornerRadius: 8,
+                        displayColors: false,
+                        callbacks: {
+                            title: function (items) {
+                                // 显示完整日期
+                                const idx = items[0].dataIndex;
+                                return data[idx].date;
+                            },
+                            label: function (item) {
+                                return `活跃人数: ${item.parsed.y.toLocaleString()}`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { color: colors.gridColor, drawBorder: false },
+                        ticks: {
+                            color: colors.tickColor,
+                            font: { size: 10 },
+                            maxRotation: 0,
+                            autoSkip: true,
+                            maxTicksLimit: 8
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: colors.gridColor, drawBorder: false },
+                        ticks: {
+                            color: colors.tickColor,
+                            font: { size: 10 },
+                            maxTicksLimit: 5,
+                            callback: function (v) {
+                                return v.toLocaleString();
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        isChartReady = true;
     }
 
-    // 初始加载 + 每 30 秒刷新一次
-    window.addEventListener('DOMContentLoaded', () => {
-        refreshActive();
-        setInterval(refreshActive, 30000);
+    // ============================================================
+    //  悬停交互
+    // ============================================================
+
+    let showTimer = null;
+    let hideTimer = null;
+
+    activeCard.addEventListener('mouseenter', function (e) {
+        clearTimeout(hideTimer);
+
+        // 延迟 180ms 显示，避免快速划过时弹出
+        showTimer = setTimeout(async function () {
+            // 定位弹窗：卡片右侧或下方
+            const rect = activeCard.getBoundingClientRect();
+            const popupWidth = 480;
+
+            let left = rect.right + 16;
+            let top = rect.top;
+
+            // 如果右侧空间不够，则显示在卡片下方
+            if (left + popupWidth > window.innerWidth - 16) {
+                left = rect.left;
+                top = rect.bottom + 12;
+            }
+
+            // 确保不超出底部
+            if (top + 260 > window.innerHeight) {
+                top = window.innerHeight - 270;
+            }
+
+            chartPopup.style.left = left + 'px';
+            chartPopup.style.top = top + 'px';
+            chartPopup.classList.add('visible');
+
+            // 如果已有缓存数据，直接渲染
+            if (statsDataCache) {
+                if (!isChartReady) {
+                    buildChart(statsDataCache);
+                }
+                return;
+            }
+
+            // 首次悬停：显示 loading 并拉取数据
+            popupLoading.style.display = 'block';
+            trendCanvas.style.display = 'none';
+            popupRange.textContent = '加载中…';
+
+            try {
+                const data = await fetchStats();
+                statsDataCache = data;
+                buildChart(data);
+            } catch (err) {
+                console.error('获取趋势数据失败:', err);
+                popupLoading.textContent = '数据加载失败，请稍后重试';
+            }
+        }, 180);
     });
+
+    activeCard.addEventListener('mouseleave', function () {
+        clearTimeout(showTimer);
+        hideTimer = setTimeout(function () {
+            chartPopup.classList.remove('visible');
+        }, 200);
+    });
+
+    // 鼠标移入弹窗时保持显示（避免因离开卡片而关闭）
+    chartPopup.addEventListener('mouseenter', function () {
+        clearTimeout(hideTimer);
+    });
+
+    chartPopup.addEventListener('mouseleave', function () {
+        hideTimer = setTimeout(function () {
+            chartPopup.classList.remove('visible');
+        }, 200);
+    });
+
+    // ============================================================
+    //  主题切换时重绘图表
+    // ============================================================
+
+    window.matchMedia('(prefers-color-scheme: dark)')
+        .addEventListener('change', function () {
+            if (chartInstance && statsDataCache) {
+                buildChart(statsDataCache);
+            }
+        });
+
+    // ============================================================
+    //  初始化：页面加载时拉取数据，更新今日活跃人数
+    // ============================================================
+
+    (async function init() {
+        try {
+            const data = await fetchStats();
+            statsDataCache = data;
+            updateActiveFromStats(data);
+        } catch (err) {
+            console.error('初始化获取活跃数据失败:', err);
+            timeEl.textContent = '更新失败';
+        }
+
+        // 每 60 秒刷新一次今日数据（静默更新，不影响图表）
+        setInterval(async function () {
+            try {
+                const data = await fetchStats();
+                statsDataCache = data;
+                updateActiveFromStats(data);
+
+                // 如果弹窗当前可见且图表已就绪，同步更新图表
+                if (chartPopup.classList.contains('visible') && chartInstance) {
+                    buildChart(data);
+                }
+            } catch (err) {
+                console.error('定时刷新活跃数据失败:', err);
+            }
+        }, 60000);
+    })();
 
     // ============================================================
     //  获取真实的 Stars（GitHub API）
