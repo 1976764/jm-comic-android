@@ -17,18 +17,14 @@ jobs:
       contents: read
 
     steps:
-      # 获取 Release 中的 APK
-      - name: Download APK
+      # 获取 Release
+      - name: Get Release
+        id: release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          mkdir -p ./apk
-
-          # Release 自动触发时，使用当前 Release
           if [ "${{ github.event_name }}" = "release" ]; then
             TAG="${{ github.event.release.tag_name }}"
-
-          # 手动运行时，获取最新 Release
           else
             TAG=$(gh release list \
               --repo "${{ github.repository }}" \
@@ -39,15 +35,26 @@ jobs:
               --jq '.[0].tagName')
           fi
 
-          echo "使用 Release: $TAG"
+          if [ -z "$TAG" ]; then
+            echo "错误：没有找到 Release"
+            exit 1
+          fi
 
-          # 下载 APK
-          gh release download "$TAG" \
+          echo "Release: $TAG"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      # 下载 APK
+      - name: Download APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p ./apk
+
+          gh release download "${{ steps.release.outputs.tag }}" \
             --repo "${{ github.repository }}" \
             --pattern "JM-arm64-release.apk" \
             --dir ./apk
 
-          # 检查 APK 是否存在
           if [ ! -f "./apk/JM-arm64-release.apk" ]; then
             echo "错误：没有找到 JM-arm64-release.apk"
             exit 1
@@ -56,13 +63,13 @@ jobs:
           echo "APK 下载成功："
           ls -lh ./apk/JM-arm64-release.apk
 
-      # 安装 AWS CLI
+      # 检查 AWS CLI
       - name: Check AWS CLI
         run: |
           aws --version
 
-      # 上传到 Cloudflare R2
-      - name: Upload APK to Cloudflare R2
+      # 上传 APK 到对应版本目录
+      - name: Upload APK to R2
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
@@ -70,10 +77,102 @@ jobs:
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
           R2_BUCKET: ${{ secrets.R2_BUCKET }}
         run: |
+          TAG="${{ steps.release.outputs.tag }}"
+
+          echo "上传版本：$TAG"
+
           aws s3 cp \
             "./apk/JM-arm64-release.apk" \
-            "s3://${R2_BUCKET}/JM-arm64-release.apk" \
+            "s3://${R2_BUCKET}/${TAG}/JM-arm64-release.apk" \
             --endpoint-url "${R2_ENDPOINT}" \
             --content-type "application/vnd.android.package-archive"
 
-          echo "APK 已成功上传到 Cloudflare R2"
+          echo "APK 上传成功：${TAG}/JM-arm64-release.apk"
+
+      # 清理旧版本，只保留最近 3 个版本
+      - name: Keep only latest 3 versions
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          echo "开始检查旧版本..."
+
+          # 获取所有版本目录
+          aws s3api list-objects-v2 \
+            --bucket "${R2_BUCKET}" \
+            --endpoint-url "${R2_ENDPOINT}" \
+            --delimiter "/" \
+            --query "CommonPrefixes[].Prefix" \
+            --output text > prefixes.txt
+
+          if [ ! -s prefixes.txt ]; then
+            echo "没有找到版本目录"
+            exit 0
+          fi
+
+          echo "当前版本目录："
+          cat prefixes.txt
+
+          # 去掉结尾的 /
+          sed 's:/$::' prefixes.txt > versions.txt
+
+          # 获取版本数量
+          COUNT=$(wc -l < versions.txt)
+
+          echo "当前共有 ${COUNT} 个版本"
+
+          # 如果不超过 3 个，不需要删除
+          if [ "$COUNT" -le 3 ]; then
+            echo "版本数量未超过 3 个，无需清理"
+            exit 0
+          fi
+
+          # 使用 Release 的创建时间进行排序
+          echo "获取 Release 时间..."
+
+          gh release list \
+            --repo "${{ github.repository }}" \
+            --limit 100 \
+            --exclude-drafts \
+            --exclude-pre-releases \
+            --json tagName,createdAt \
+            --jq '.[] | "\(.createdAt) \(.tagName)"' \
+            | sort -r > releases.txt
+
+          # 找出需要删除的版本
+          echo "检查需要删除的版本..."
+
+          KEEP=0
+
+          while read -r LINE; do
+            TAG=$(echo "$LINE" | cut -d' ' -f2-)
+
+            if grep -Fxq "$TAG" versions.txt; then
+              KEEP=$((KEEP + 1))
+
+              if [ "$KEEP" -le 3 ]; then
+                echo "保留：$TAG"
+              else
+                echo "删除：$TAG"
+
+                aws s3 rm \
+                  "s3://${R2_BUCKET}/${TAG}/" \
+                  --recursive \
+                  --endpoint-url "${R2_ENDPOINT}"
+              fi
+            fi
+          done < releases.txt
+
+          echo "旧版本清理完成"
+
+          echo "当前 R2 版本："
+
+          aws s3api list-objects-v2 \
+            --bucket "${R2_BUCKET}" \
+            --endpoint-url "${R2_ENDPOINT}" \
+            --delimiter "/" \
+            --query "CommonPrefixes[].Prefix" \
+            --output text
