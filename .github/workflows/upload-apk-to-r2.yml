@@ -1,8 +1,13 @@
+
 name: Upload APK to Cloudflare R2
 
 on:
+  # 发布 Release 时自动运行
   release:
     types: [published]
+
+  # 支持手动运行
+  workflow_dispatch:
 
 jobs:
   upload-apk:
@@ -12,23 +17,43 @@ jobs:
       contents: read
 
     steps:
-      # 下载当前 Release 中的 APK
+      # 获取 Release 中的 APK
       - name: Download APK
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p ./apk
 
-          gh release download "${{ github.event.release.tag_name }}" \
+          # Release 自动触发时，使用当前 Release
+          if [ "${{ github.event_name }}" = "release" ]; then
+            TAG="${{ github.event.release.tag_name }}"
+
+          # 手动运行时，获取最新 Release
+          else
+            TAG=$(gh release list \
+              --repo "${{ github.repository }}" \
+              --limit 1 \
+              --exclude-drafts \
+              --exclude-pre-releases \
+              --json tagName \
+              --jq '.[0].tagName')
+          fi
+
+          echo "使用 Release: $TAG"
+
+          # 下载 APK
+          gh release download "$TAG" \
             --repo "${{ github.repository }}" \
             --pattern "JM-arm64-release.apk" \
             --dir ./apk
 
+          # 检查 APK 是否存在
           if [ ! -f "./apk/JM-arm64-release.apk" ]; then
             echo "错误：没有找到 JM-arm64-release.apk"
             exit 1
           fi
 
+          echo "APK 下载成功："
           ls -lh ./apk/JM-arm64-release.apk
 
       # 安装 AWS CLI
