@@ -57,10 +57,9 @@ jobs:
           ls -lh ./apk/JM-arm64-release.apk
 
       # 安装 AWS CLI
-      - name: Install AWS CLI
+      - name: Check AWS CLI
         run: |
-          sudo apt-get update
-          sudo apt-get install -y awscli
+          aws --version
 
       # 上传到 Cloudflare R2
       - name: Upload APK to Cloudflare R2
