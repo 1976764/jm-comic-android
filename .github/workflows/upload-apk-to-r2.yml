@@ -1,0 +1,55 @@
+name: Upload APK to Cloudflare R2
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  upload-apk:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      # 下载当前 Release 中的 APK
+      - name: Download APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p ./apk
+
+          gh release download "${{ github.event.release.tag_name }}" \
+            --repo "${{ github.repository }}" \
+            --pattern "JM-arm64-release.apk" \
+            --dir ./apk
+
+          if [ ! -f "./apk/JM-arm64-release.apk" ]; then
+            echo "错误：没有找到 JM-arm64-release.apk"
+            exit 1
+          fi
+
+          ls -lh ./apk/JM-arm64-release.apk
+
+      # 安装 AWS CLI
+      - name: Install AWS CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y awscli
+
+      # 上传到 Cloudflare R2
+      - name: Upload APK to Cloudflare R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          aws s3 cp \
+            "./apk/JM-arm64-release.apk" \
+            "s3://${R2_BUCKET}/JM-arm64-release.apk" \
+            --endpoint-url "${R2_ENDPOINT}" \
+            --content-type "application/vnd.android.package-archive"
+
+          echo "APK 已成功上传到 Cloudflare R2"
