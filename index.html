@@ -2,1127 +2,858 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>JM Comic · Android</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
-    <!-- 引入 Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#f5f5f7" />
+    <title>YOMII · 漫画阅读客户端</title>
+    <!-- 标签页图标：跟随系统主题自动切换 -->
+    <link rel="icon" type="image/png" 
+          href="https://raw.githubusercontent.com/1976764/jm-comic-android/main/logo/l.png" 
+          media="(prefers-color-scheme: light)">
+    <link rel="icon" type="image/png" 
+          href="https://raw.githubusercontent.com/1976764/jm-comic-android/main/logo/a.png" 
+          media="(prefers-color-scheme: dark)">
+    
+    <!-- iOS 添加到主屏幕时使用的图标（可选） -->
+    <link rel="apple-touch-icon" 
+          href="https://raw.githubusercontent.com/1976764/jm-comic-android/main/logo/l.png">
     <style>
         /* ===== 全局重置 ===== */
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            user-select: none;
-            -webkit-user-select: none;
-            -moz-user-select: none;
-            -ms-user-select: none;
+            -webkit-tap-highlight-color: transparent;
         }
 
-        /* ===== 瑞典红主题色 ===== */
+        /* ===== 隐藏滚动条 ===== */
+        html {
+            scrollbar-width: none;          /* Firefox */
+            -ms-overflow-style: none;       /* IE/Edge */
+            scroll-behavior: smooth;
+        }
+        html::-webkit-scrollbar,
+        body::-webkit-scrollbar {
+            display: none;                  /* Chrome / Safari */
+            width: 0;
+            height: 0;
+        }
+        body {
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+
+        /* ===== 亮色主题 ===== */
         :root {
-            --swedish-red: #9e2a2b;
-            --swedish-red-dark: #7a1f20;
-            --swedish-red-light: #c95454;
-            --bg-body: #faf6f0;
+            --bg-body: #f5f5f7;
             --bg-card: #ffffff;
-            --bg-arch: #fcfaf7;
-            --text-primary: #2c2c2c;
-            --text-secondary: #5a5a5a;
-            --text-muted: #8a8a8a;
-            --border-light: #e6e0d8;
-            --shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
-            --radius: 12px;
-            --transition: 0.2s ease;
-            color-scheme: light dark;
+            --bg-card-hover: #fafafa;
+            --card-border: rgba(0, 0, 0, 0.05);
+            --card-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
+            --card-shadow-hover: 0 8px 32px rgba(0, 0, 0, 0.08);
+
+            --text-1: #1d1d1f;
+            --text-2: #6e6e73;
+            --text-3: #a1a1a6;
+
+            --divider: rgba(0, 0, 0, 0.06);
+            --fill: rgba(0, 0, 0, 0.04);
+            --fill-2: rgba(0, 0, 0, 0.08);
+
+            --nav-bg: rgba(255, 255, 255, 0.72);
+            --nav-border: rgba(255, 255, 255, 0.6);
+
+            --accent: #1d1d1f;
+            --accent-fg: #ffffff;
+
+            --badge-bg: rgba(0, 0, 0, 0.04);
+            --badge-text: #6e6e73;
         }
 
-        /* ===== 暗色主题：默认跟随系统主题 ===== */
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --bg-body: #171514;
-                --bg-card: #242120;
-                --bg-arch: #1d1b1a;
-                --text-primary: #f2efec;
-                --text-secondary: #c2bdb8;
-                --text-muted: #918a84;
-                --border-light: #3a3532;
-                --shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
-            }
+        /* ===== 暗色主题 ===== */
+        [data-theme="dark"] {
+            --bg-body: #000000;
+            --bg-card: #1c1c1e;
+            --bg-card-hover: #242426;
+            --card-border: rgba(255, 255, 255, 0.08);
+            --card-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+            --card-shadow-hover: 0 8px 32px rgba(0, 0, 0, 0.6);
 
-            .card:hover {
-                box-shadow: 0 8px 24px rgba(158, 42, 43, 0.18);
-            }
+            --text-1: #f5f5f7;
+            --text-2: #a1a1a6;
+            --text-3: #6e6e73;
 
-            .feature-card:hover {
-                box-shadow: 0 4px 12px rgba(158, 42, 43, 0.14);
-            }
+            --divider: rgba(255, 255, 255, 0.08);
+            --fill: rgba(255, 255, 255, 0.06);
+            --fill-2: rgba(255, 255, 255, 0.12);
+
+            --nav-bg: rgba(28, 28, 30, 0.72);
+            --nav-border: rgba(255, 255, 255, 0.1);
+
+            --accent: #ffffff;
+            --accent-fg: #000000;
+
+            --badge-bg: rgba(255, 255, 255, 0.08);
+            --badge-text: #a1a1a6;
         }
 
         body {
             background-color: var(--bg-body);
-            color: var(--text-primary);
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            color: var(--text-1);
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC",
+                         "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
             line-height: 1.5;
-            padding: 2.5rem 1.5rem;
             min-height: 100vh;
-            transition: background-color var(--transition), color var(--transition);
-            display: flex;
-            justify-content: center;
+            -webkit-font-smoothing: antialiased;
+            transition: background-color 0.4s ease, color 0.4s ease;
+            overflow-x: hidden;
         }
 
-        .container {
-            max-width: 1100px;
+        /* ================= 顶部导航（全宽） ================= */
+        .nav {
+            position: sticky;
+            top: 0;
+            z-index: 100;
             width: 100%;
+            height: 64px;
+            background: var(--nav-bg);
+            -webkit-backdrop-filter: blur(24px) saturate(180%);
+            backdrop-filter: blur(24px) saturate(180%);
+            border-bottom: 1px solid var(--divider);
+            transition: background 0.4s ease, border-color 0.4s ease;
         }
 
-        /* ===== 头部 ===== */
-        .header {
+        .nav-inner {
+            width: 100%;
+            height: 100%;
             display: flex;
-            flex-wrap: wrap;
             align-items: center;
             justify-content: space-between;
-            gap: 1rem 2rem;
-            margin-bottom: 2.5rem;
-            padding-bottom: 1.2rem;
-            border-bottom: 2px solid var(--swedish-red);
+            /* 左侧留白更大，远离屏幕边缘 */
+            padding: 0 32px 0 48px;
         }
 
-        .header-left {
+        .nav-brand {
             display: flex;
             align-items: center;
-            gap: 0.75rem;
+            gap: 12px;
+            text-decoration: none;
+            color: var(--text-1);
         }
 
-        .header-left h1 {
-            font-size: 1.7rem;
-            font-weight: 600;
-            letter-spacing: -0.3px;
-        }
-
-        .header-left h1 span {
-            color: var(--text-muted);
-            font-weight: 400;
-        }
-
-        .header-badges {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-        }
-
-        .badge {
-            background: var(--bg-card);
-            border: 1px solid var(--border-light);
-            padding: 0.25rem 0.9rem;
-            border-radius: 30px;
-            font-size: 0.75rem;
-            color: var(--text-secondary);
-            display: inline-flex;
-            align-items: center;
-            gap: 0.4rem;
-        }
-
-        .badge i {
-            color: var(--swedish-red);
-        }
-
-        .badge .license {
-            color: var(--swedish-red);
-            font-weight: 500;
-        }
-
-        /* ===== 仪表盘网格 ===== */
-        .dashboard-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1.5rem;
-            margin-bottom: 2.5rem;
-        }
-
-        @media (max-width: 700px) {
-            .dashboard-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .card {
-            background: var(--bg-card);
-            border: 1px solid var(--border-light);
-            border-radius: var(--radius);
-            padding: 1.8rem 2rem;
-            box-shadow: var(--shadow);
-            transition: box-shadow var(--transition), transform var(--transition);
-            display: flex;
-            flex-direction: column;
-        }
-
-        .card:hover {
-            box-shadow: 0 8px 24px rgba(158, 42, 43, 0.08);
-            transform: translateY(-2px);
-        }
-
-        .card-title {
-            font-size: 0.8rem;
-            text-transform: uppercase;
-            letter-spacing: 0.6px;
-            color: var(--text-muted);
-            margin-bottom: 1rem;
-            display: flex;
-            align-items: center;
-            gap: 0.6rem;
+        .nav-logo {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            object-fit: contain;
             flex-shrink: 0;
         }
 
-        .card-title i {
-            color: var(--swedish-red);
-            font-size: 1rem;
+        .nav-name {
+            font-size: 18px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            white-space: nowrap;
         }
 
-        /* ----- 活跃人数 ----- */
-        .active-container {
+        .nav-actions {
             display: flex;
             align-items: center;
-            gap: 1.8rem;
-            flex-wrap: wrap;
-            flex: 1;
-            align-content: center;
-            justify-content: flex-start;
+            gap: 8px;
+            flex-shrink: 0;
         }
 
-        .active-number {
-            font-size: 3.6rem;
-            font-weight: 700;
-            letter-spacing: -1px;
-            color: var(--swedish-red);
-            line-height: 1.1;
-        }
-
-        .active-meta {
-            color: var(--text-secondary);
-            font-size: 0.9rem;
-        }
-
-        .active-meta .update-time {
-            display: block;
-            margin-top: 0.2rem;
-            font-size: 0.75rem;
-            color: var(--text-muted);
-        }
-
-        .active-meta .status-dot {
-            display: inline-block;
-            width: 10px;
-            height: 10px;
-            background: var(--swedish-red);
+        .nav-btn {
+            width: 36px;
+            height: 36px;
             border-radius: 50%;
-            margin-right: 0.4rem;
-            animation: pulse-dot 2s infinite;
-        }
-
-        @keyframes pulse-dot {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.4; transform: scale(0.8); }
-        }
-
-        /* ----- 项目速览 ----- */
-        .stats-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 0.8rem;
-            height: 100%;
-            align-content: start;
+            place-items: center;
+            border: 0;
+            background: transparent;
+            color: var(--text-2);
+            cursor: pointer;
+            transition: background 0.2s ease, color 0.2s ease,
+                        transform 0.15s cubic-bezier(.34, 1.3, .6, 1);
+        }
+        .nav-btn:hover { background: var(--fill); color: var(--text-1); }
+        .nav-btn:active { transform: scale(0.88); }
+        .nav-btn svg { width: 20px; height: 20px; }
+
+        /* ================= 页面容器 ================= */
+        .page {
+            width: 100%;
+            max-width: 1080px;
+            margin: 0 auto;
+            padding: 0 24px;
         }
 
-        .stat-item {
-            background: var(--bg-body);
-            border-radius: 10px;
-            padding: 0.8rem 1rem;
+        /* ================= Hero 区域 ================= */
+        .hero {
+            text-align: center;
+            padding: 80px 0 60px;
+            position: relative;
+        }
+
+        .hero-logo {
+            width: 80px;
+            height: 80px;
+            border-radius: 20px;
+            object-fit: contain;
+            margin-bottom: 24px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            transition: box-shadow 0.4s ease;
+        }
+
+        [data-theme="dark"] .hero-logo {
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+        }
+
+        .hero-title {
+            font-size: 48px;
+            font-weight: 800;
+            letter-spacing: -0.04em;
+            line-height: 1.1;
+            margin-bottom: 16px;
+            background: linear-gradient(135deg, var(--text-1) 0%, var(--text-2) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero-subtitle {
+            font-size: 18px;
+            color: var(--text-2);
+            max-width: 520px;
+            margin: 0 auto 12px;
+            line-height: 1.6;
+        }
+
+        .hero-tags {
             display: flex;
-            flex-direction: column;
+            flex-wrap: wrap;
             justify-content: center;
-            min-width: 0;
+            gap: 8px;
+            margin-top: 20px;
         }
 
-        .stat-item .label {
-            font-size: 0.65rem;
-            text-transform: uppercase;
-            letter-spacing: 0.4px;
-            color: var(--text-muted);
-            margin-bottom: 0.15rem;
-        }
-
-        .stat-item .value {
-            font-size: 1rem;
+        .hero-tag {
+            height: 30px;
+            padding: 0 14px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            border-radius: 15px;
+            background: var(--badge-bg);
+            color: var(--badge-text);
+            font-size: 13px;
             font-weight: 600;
-            line-height: 1.3;
-            word-break: break-word;
-            overflow-wrap: break-word;
-            color: var(--text-primary);
+            border: 1px solid var(--card-border);
         }
 
-        .stat-item .value i {
-            color: var(--swedish-red);
-            margin-right: 0.2rem;
-            font-size: 0.9rem;
+        /* ================= 下载按钮 ================= */
+        .hero-actions {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 12px;
+            margin-top: 32px;
         }
 
-        /* ===== 内容区块 ===== */
-        .section {
-            margin-bottom: 2.5rem;
+        .btn-primary {
+            height: 52px;
+            padding: 0 32px;
+            border: 0;
+            border-radius: 16px;
+            background: var(--accent);
+            color: var(--accent-fg);
+            font: inherit;
+            font-size: 16px;
+            font-weight: 650;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: transform 0.18s cubic-bezier(.34, 1.3, .6, 1), opacity 0.2s ease;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+        }
+        .btn-primary:hover { opacity: 0.9; }
+        .btn-primary:active { transform: scale(0.97); }
+        .btn-primary svg { width: 18px; height: 18px; }
+
+        .btn-secondary {
+            height: 52px;
+            padding: 0 28px;
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            background: var(--bg-card);
+            color: var(--text-1);
+            font: inherit;
+            font-size: 16px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background 0.2s ease, border-color 0.2s ease,
+                        transform 0.18s cubic-bezier(.34, 1.3, .6, 1);
+        }
+        .btn-secondary:hover { background: var(--bg-card-hover); border-color: var(--text-3); }
+        .btn-secondary:active { transform: scale(0.97); }
+        .btn-secondary svg { width: 18px; height: 18px; }
+
+        /* ================= 功能特性 ================= */
+        .features {
+            padding: 60px 0;
         }
 
         .section-title {
-            font-size: 1.3rem;
-            font-weight: 600;
-            margin-bottom: 1rem;
-            display: flex;
-            align-items: center;
-            gap: 0.6rem;
-            color: var(--text-primary);
+            font-size: 32px;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            text-align: center;
+            margin-bottom: 12px;
         }
 
-        .section-title i {
-            color: var(--swedish-red);
-            font-size: 1.1rem;
+        .section-desc {
+            font-size: 16px;
+            color: var(--text-2);
+            text-align: center;
+            max-width: 480px;
+            margin: 0 auto 48px;
+            line-height: 1.6;
         }
 
-        .desc-block {
-            background: var(--bg-card);
-            border: 1px solid var(--border-light);
-            border-radius: var(--radius);
-            padding: 1.5rem 2rem;
-            box-shadow: var(--shadow);
-        }
-
-        .desc-block p {
-            color: var(--text-secondary);
-            margin-bottom: 0.8rem;
-            font-size: 0.95rem;
-        }
-
-        .desc-block p:last-child {
-            margin-bottom: 0;
-        }
-
-        .desc-block strong {
-            color: var(--text-primary);
-        }
-
-        .tech-tags {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-            margin-top: 0.8rem;
-        }
-
-        .tech-tags span {
-            background: var(--bg-body);
-            border: 1px solid var(--border-light);
-            padding: 0.15rem 0.9rem;
-            border-radius: 30px;
-            font-size: 0.75rem;
-            color: var(--text-secondary);
-            display: inline-flex;
-            align-items: center;
-            gap: 0.3rem;
-        }
-
-        .tech-tags span i {
-            color: var(--swedish-red);
-        }
-
-        /* ===== 核心功能 - 3列2行居中 ===== */
         .feature-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 1rem;
-            justify-items: center;
+            gap: 20px;
         }
 
         .feature-card {
             background: var(--bg-card);
-            border: 1px solid var(--border-light);
-            border-radius: var(--radius);
-            padding: 1.2rem 1.4rem;
-            width: 100%;
-            text-align: center;
-            transition: border-color var(--transition), box-shadow var(--transition);
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            padding: 28px 24px;
+            box-shadow: var(--card-shadow);
+            transition: background 0.3s ease, border-color 0.3s ease,
+                        box-shadow 0.3s ease, transform 0.3s cubic-bezier(.34, 1.3, .6, 1);
         }
 
         .feature-card:hover {
-            border-color: var(--swedish-red);
-            box-shadow: 0 4px 12px rgba(158, 42, 43, 0.06);
+            box-shadow: var(--card-shadow-hover);
+            transform: translateY(-3px);
         }
 
-        .feature-card .icon {
-            font-size: 1.6rem;
-            color: var(--swedish-red);
-            margin-bottom: 0.4rem;
+        .feature-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 14px;
+            background: var(--fill);
+            display: grid;
+            place-items: center;
+            margin-bottom: 18px;
+            color: var(--text-1);
         }
 
-        .feature-card h4 {
-            font-size: 0.95rem;
-            font-weight: 600;
-            margin-bottom: 0.2rem;
+        .feature-icon svg { width: 24px; height: 24px; }
+
+        .feature-card h3 {
+            font-size: 17px;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+            margin-bottom: 8px;
+            color: var(--text-1);
         }
 
         .feature-card p {
-            font-size: 0.8rem;
-            color: var(--text-secondary);
-            line-height: 1.4;
+            font-size: 14px;
+            color: var(--text-2);
+            line-height: 1.55;
         }
 
-        @media (max-width: 700px) {
-            .feature-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-        }
-        @media (max-width: 480px) {
-            .feature-grid {
-                grid-template-columns: 1fr;
-            }
+        /* ================= 下载区域 ================= */
+        .downloads {
+            padding: 60px 0 80px;
         }
 
-        /* ===== 架构图 ===== */
-        .arch-block {
+        .download-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            max-width: 640px;
+            margin: 0 auto;
+        }
+
+        .download-card {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 20px 24px;
             background: var(--bg-card);
-            border: 1px solid var(--border-light);
-            border-radius: var(--radius);
-            padding: 1.5rem 2rem;
-            box-shadow: var(--shadow);
-            font-family: 'Courier New', monospace;
-            font-size: 0.8rem;
-            color: var(--text-secondary);
-            white-space: pre-wrap;
-            overflow-x: auto;
-            line-height: 1.6;
-            background-color: var(--bg-arch);
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            text-decoration: none;
+            color: var(--text-1);
+            box-shadow: var(--card-shadow);
+            transition: background 0.2s ease, border-color 0.2s ease,
+                        box-shadow 0.3s ease, transform 0.2s cubic-bezier(.34, 1.3, .6, 1);
         }
 
-        .arch-block .highlight {
-            color: var(--swedish-red);
+        .download-card:hover {
+            border-color: var(--text-3);
+            box-shadow: var(--card-shadow-hover);
+            transform: translateY(-2px);
+        }
+        .download-card:active { transform: scale(0.98); }
+
+        .dl-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: var(--fill-2);
+            display: grid;
+            place-items: center;
+            flex-shrink: 0;
+            color: var(--text-1);
+        }
+        .dl-icon svg { width: 22px; height: 22px; }
+
+        .dl-info { flex: 1; min-width: 0; }
+
+        .dl-info h4 {
+            font-size: 15px;
+            font-weight: 700;
+            margin-bottom: 3px;
+        }
+
+        .dl-info p {
+            font-size: 12.5px;
+            color: var(--text-3);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .dl-info .ver {
+            color: var(--text-2);
             font-weight: 600;
         }
 
-        /* ===== Footer ===== */
+        .dl-arrow {
+            width: 18px;
+            height: 18px;
+            color: var(--text-3);
+            flex-shrink: 0;
+            transition: transform 0.2s ease, color 0.2s ease;
+        }
+        .download-card:hover .dl-arrow {
+            color: var(--text-1);
+            transform: translateX(3px);
+        }
+
+        /* ================= 页脚 ================= */
+        .footer {
+            padding: 32px 0;
+            border-top: 1px solid var(--divider);
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
         .footer-links {
             display: flex;
             flex-wrap: wrap;
-            gap: 1rem 2rem;
-            margin-top: 2rem;
-            padding-top: 1.5rem;
-            border-top: 1px solid var(--border-light);
+            gap: 8px 20px;
         }
 
         .footer-links a {
-            color: var(--text-secondary);
+            font-size: 13.5px;
+            color: var(--text-3);
             text-decoration: none;
-            font-size: 0.85rem;
-            transition: color var(--transition);
             display: inline-flex;
             align-items: center;
-            gap: 0.4rem;
+            gap: 5px;
+            transition: color 0.2s ease;
+        }
+        .footer-links a:hover { color: var(--text-1); }
+        .footer-links a svg { width: 15px; height: 15px; }
+
+        .footer-copy {
+            font-size: 12.5px;
+            color: var(--text-3);
         }
 
-        .footer-links a:hover {
-            color: var(--swedish-red);
+        /* ================= 响应式 - 平板 ================= */
+        @media (max-width: 900px) {
+            .hero-title { font-size: 38px; }
+            .feature-grid { grid-template-columns: repeat(2, 1fr); }
+            .nav-inner { padding: 0 24px 0 32px; }
         }
 
-        .footer-links a i {
-            font-size: 0.9rem;
+        /* ================= 响应式 - 手机 ================= */
+        @media (max-width: 600px) {
+            .page { padding: 0 16px; }
+
+            .nav { height: 56px; }
+            .nav-inner { padding: 0 20px 0 28px; }
+            .nav-name { font-size: 16px; }
+            .nav-logo { width: 28px; height: 28px; }
+            .nav-brand { gap: 10px; }
+
+            .hero { padding: 48px 0 40px; }
+            .hero-logo { width: 64px; height: 64px; border-radius: 16px; margin-bottom: 18px; }
+            .hero-title { font-size: 30px; letter-spacing: -0.03em; }
+            .hero-subtitle { font-size: 15px; }
+            .hero-tags { gap: 6px; }
+            .hero-tag { height: 26px; padding: 0 10px; font-size: 11.5px; }
+            .hero-actions { flex-direction: column; align-items: stretch; gap: 10px; margin-top: 24px; }
+            .btn-primary, .btn-secondary { justify-content: center; height: 48px; font-size: 15px; }
+
+            .features { padding: 40px 0; }
+            .section-title { font-size: 24px; }
+            .section-desc { font-size: 14px; margin-bottom: 32px; }
+            .feature-grid { grid-template-columns: 1fr; gap: 12px; }
+            .feature-card { padding: 20px; border-radius: 16px; }
+            .feature-icon { width: 40px; height: 40px; border-radius: 11px; margin-bottom: 14px; }
+            .feature-icon svg { width: 20px; height: 20px; }
+            .feature-card h3 { font-size: 15.5px; }
+            .feature-card p { font-size: 13px; }
+
+            .downloads { padding: 40px 0 60px; }
+            .download-grid { grid-template-columns: 1fr; gap: 12px; }
+            .download-card { padding: 16px 18px; border-radius: 16px; }
+            .dl-icon { width: 40px; height: 40px; border-radius: 10px; }
+            .dl-icon svg { width: 20px; height: 20px; }
+
+            .footer { flex-direction: column; align-items: flex-start; gap: 12px; padding: 24px 0; }
+            .footer-links { gap: 6px 16px; }
         }
 
-        .footer-links .muted {
-            color: var(--text-muted);
-            font-size: 0.75rem;
-            margin-left: auto;
-        }
-
-        /* ===== 响应式调整 ===== */
-        @media (max-width: 500px) {
-            body { padding: 1.5rem 0.8rem; }
-            .header-left h1 { font-size: 1.2rem; }
-            .active-number { font-size: 2.8rem; }
-            .stats-grid { gap: 0.5rem; }
-            .stat-item { padding: 0.6rem 0.8rem; }
-            .stat-item .value { font-size: 0.9rem; }
-            .desc-block { padding: 1rem; }
-            .arch-block { padding: 1rem; font-size: 0.7rem; }
-            .card { padding: 1.2rem; }
-        }
-
-        /* ===== 悬浮图表弹窗 ===== */
-        #chartPopup {
-            position: fixed;
-            z-index: 9999;
-            width: 480px;
-            max-width: 90vw;
-            background: var(--bg-card);
-            border: 1px solid var(--border-light);
-            border-radius: var(--radius);
-            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
-            padding: 1.2rem 1.4rem 1rem;
-            pointer-events: none;
-            opacity: 0;
-            transform: translateY(6px) scale(0.98);
-            transition: opacity 0.2s ease, transform 0.2s ease;
-        }
-
-        #chartPopup.visible {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-        }
-
-        #chartPopup .popup-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 0.6rem;
-        }
-
-        #chartPopup .popup-header span {
-            font-size: 0.8rem;
-            font-weight: 600;
-            color: var(--text-primary);
-            display: flex;
-            align-items: center;
-            gap: 0.4rem;
-        }
-
-        #chartPopup .popup-header span i {
-            color: var(--swedish-red);
-        }
-
-        #chartPopup .popup-header .popup-sub {
-            font-size: 0.7rem;
-            color: var(--text-muted);
-            font-weight: 400;
-        }
-
-        #chartPopup canvas {
-            width: 100% !important;
-            height: 180px !important;
-        }
-
-        #chartPopup .popup-loading {
-            text-align: center;
-            font-size: 0.8rem;
-            color: var(--text-muted);
-            padding: 2rem 0;
-        }
-
-        /* 暗色模式下的弹窗阴影 */
-        @media (prefers-color-scheme: dark) {
-            #chartPopup {
-                box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+        /* ================= 减少动画 ================= */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                transition-duration: 0.01ms !important;
             }
+            html { scroll-behavior: auto; }
         }
     </style>
 </head>
 <body>
 
-<div class="container">
-
-    <!-- ===== HEADER ===== -->
-    <header class="header">
-        <div class="header-left">
-            <h1>jm-comic <span>· Android</span></h1>
-        </div>
-        <div class="header-badges">
-            <span class="badge"><i class="fab fa-github"></i> 1976764/jm-comic-android</span>
-            <span class="badge"><i class="fas fa-code"></i> Kotlin + Python</span>
-            <span class="badge"><i class="fas fa-balance-scale"></i> <span class="license">PolyForm Noncommercial</span></span>
-        </div>
-    </header>
-
-    <!-- ===== DASHBOARD ===== -->
-    <div class="dashboard-grid">
-        <!-- 左侧：活跃人数（悬停显示折线图） -->
-        <div class="card" id="activeCard">
-            <div class="card-title">
-                <i class="fas fa-chart-line"></i> 今日活跃人数
-            </div>
-            <div class="active-container">
-                <div class="active-number" id="activeCount">0</div>
-                <div class="active-meta">
-                    <span class="status-dot"></span> 今日上线
-                    <span class="update-time" id="updateTime">更新于: 刚刚</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- 右侧：项目速览 -->
-        <div class="card">
-            <div class="card-title">
-                <i class="fas fa-cubes"></i> 项目速览
-            </div>
-            <div class="stats-grid">
-                <div class="stat-item">
-                    <span class="label"><i class="fas fa-star"></i> Stars</span>
-                    <span class="value" id="starCount">—</span>
-                </div>
-                <div class="stat-item">
-                    <span class="label"><i class="fas fa-code-branch"></i> 技术栈</span>
-                    <span class="value" style="font-size: 0.9rem;">Compose + Chaquopy</span>
-                </div>
-                <div class="stat-item">
-                    <span class="label"><i class="fas fa-calendar-alt"></i> 最后更新</span>
-                    <span class="value" style="font-size: 0.9rem;">2026-09-03</span>
-                </div>
-                <div class="stat-item">
-                    <span class="label"><i class="fas fa-shield-alt"></i> 许可证</span>
-                    <span class="value" style="font-size: 0.85rem;">PolyForm 1.0.0</span>
-                </div>
-            </div>
+<!-- ================= 顶部导航（全宽） ================= -->
+<nav class="nav">
+    <div class="nav-inner">
+        <a class="nav-brand" href="#">
+            <img class="nav-logo" id="navLogo" src="" alt="YOMII" />
+            <span class="nav-name">YOMII</span>
+        </a>
+        <div class="nav-actions">
+            <button class="nav-btn" id="themeToggle" aria-label="切换主题">
+                <svg id="iconSun" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="1.8" stroke-linecap="round">
+                    <circle cx="12" cy="12" r="4.1"/>
+                    <path d="M12 2.6v2.1M12 19.3v2.1M4.4 4.4l1.5 1.5M18.1 18.1l1.5 1.5M2.6 12h2.1M19.3 12h2.1M4.4 19.6l1.5-1.5M18.1 5.9l1.5-1.5"/>
+                </svg>
+                <svg id="iconMoon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+                     style="display:none">
+                    <path d="M20.4 14.2A8.4 8.4 0 0 1 9.8 3.6a8.5 8.5 0 1 0 10.6 10.6Z"/>
+                </svg>
+            </button>
         </div>
     </div>
+</nav>
 
-    <!-- ===== 项目简介 ===== -->
-    <section class="section">
-        <div class="section-title">
-            <i class="fas fa-info-circle"></i> 项目简介
+<!-- ================= 页面内容 ================= -->
+<div class="page">
+
+    <!-- ===== Hero 区域 ===== -->
+    <section class="hero">
+        <img class="hero-logo" id="heroLogo" src="" alt="YOMII" />
+        <h1 class="hero-title">YOMII</h1>
+        <p class="hero-subtitle">
+            一款基于 Android 原生开发的漫画阅读客户端，采用 Jetpack Compose + Python 混合架构。
+        </p>
+        <div class="hero-tags">
+            <span class="hero-tag">Android</span>
+            <span class="hero-tag">Kotlin</span>
+            <span class="hero-tag">Python 3.13+</span>
+            <span class="hero-tag">Jetpack Compose</span>
+            <span class="hero-tag">MVVM</span>
+            <span class="hero-tag">Chaquopy</span>
         </div>
-        <div class="desc-block">
-            <p>
-                <strong>JM Comic</strong> 是一款基于 Android 原生开发的漫画阅读客户端，
-                采用 <strong>Jetpack Compose + Python</strong> 混合架构。
-                通过 <strong>Chaquopy</strong> 将 Python <code>jmcomic</code> 库嵌入 Android 原生应用，
-                实现漫画的搜索、浏览、阅读与下载功能。
-            </p>
-            <p>
-                前端使用 Jetpack Compose 构建 Material 3 风格的现代化 UI，
-                后端通过 Python 桥接层调用 jmcomic 库完成数据获取与图片处理。
-            </p>
-            <div class="tech-tags">
-                <span><i class="fab fa-android"></i> Android</span>
-                <span><i class="fas fa-mobile-alt"></i> Kotlin</span>
-                <span><i class="fab fa-python"></i> Python 3.13+</span>
-                <span><i class="fab fa-layer-group"></i> Jetpack Compose</span>
-                <span><i class="fas fa-cubes"></i> MVVM</span>
-                <span><i class="fas fa-cloud"></i> Chaquopy 17.0.0</span>
-                <span><i class="fas fa-image"></i> Coil 2.7.0</span>
-            </div>
+        <div class="hero-actions">
+            <a class="btn-primary" id="heroDownloadBtn" href="#downloads">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                下载 YOMII
+            </a>
+            <a class="btn-secondary" href="https://github.com/1976764/jm-comic-android" target="_blank" rel="noopener">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.44 9.8 8.21 11.39.6.11.82-.26.82-.58v-2.03c-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.75.08-.73.08-.73 1.2.08 1.84 1.24 1.84 1.24 1.07 1.84 2.81 1.31 3.5 1 .11-.78.42-1.31.76-1.61-2.66-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.12-.3-.54-1.52.12-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6.01 0c2.29-1.55 3.3-1.23 3.3-1.23.66 1.66.24 2.88.12 3.18.77.84 1.24 1.91 1.24 3.22 0 4.61-2.81 5.63-5.48 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.83.58A12.01 12.01 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
+                </svg>
+                GitHub
+            </a>
         </div>
     </section>
 
-    <!-- ===== 核心功能（3列2行居中） ===== -->
-    <section class="section">
-        <div class="section-title">
-            <i class="fas fa-th-list"></i> 核心功能
-        </div>
+    <!-- ===== 功能特性 ===== -->
+    <section class="features">
+        <h2 class="section-title">核心功能</h2>
+        <p class="section-desc">
+            YOMII 通过 Chaquopy 将 Python jmcomic 库嵌入 Android 原生应用，实现漫画的搜索、浏览、阅读与下载。
+        </p>
         <div class="feature-grid">
             <div class="feature-card">
-                <div class="icon"><i class="fas fa-home"></i></div>
-                <h4>首页 &amp; 分类</h4>
-                <p>2 列网格无限滚动，按标签分类浏览。</p>
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                        <polyline points="9 22 9 12 15 12 15 22"/>
+                    </svg>
+                </div>
+                <h3>首页 & 分类</h3>
+                <p>两列网格无限滚动，按标签分类浏览，快速发现感兴趣的作品。</p>
             </div>
             <div class="feature-card">
-                <div class="icon"><i class="fas fa-search"></i></div>
-                <h4>搜索</h4>
-                <p>关键词实时搜索漫画。</p>
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"/>
+                        <path d="m21 21-4.3-4.3"/>
+                    </svg>
+                </div>
+                <h3>搜索</h3>
+                <p>关键词实时搜索，支持按年份、月份排序，快速定位目标漫画。</p>
             </div>
             <div class="feature-card">
-                <div class="icon"><i class="fas fa-book-open"></i></div>
-                <h4>详情 &amp; 阅读器</h4>
-                <p>封面、章节列表，连续滚动阅读。</p>
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+                        <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+                    </svg>
+                </div>
+                <h3>详情 & 阅读器</h3>
+                <p>封面、章节列表，连续滚动阅读，支持夜间模式与护眼模式。</p>
             </div>
             <div class="feature-card">
-                <div class="icon"><i class="fas fa-user"></i></div>
-                <h4>用户系统</h4>
-                <p>登录、Cookie 恢复、收藏管理。</p>
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="8" r="4"/>
+                        <path d="M20 21a8 8 0 1 0-16 0"/>
+                    </svg>
+                </div>
+                <h3>用户系统</h3>
+                <p>登录、Cookie 恢复、收藏管理，支持自定义书签与阅读进度同步。</p>
             </div>
             <div class="feature-card">
-                <div class="icon"><i class="fas fa-download"></i></div>
-                <h4>下载管理</h4>
-                <p>离线下载，实时进度。</p>
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="7 10 12 15 17 10"/>
+                        <line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                </div>
+                <h3>下载管理</h3>
+                <p>离线下载，支持章节缓存与批量下载，无网络也能随时阅读。</p>
             </div>
             <div class="feature-card">
-                <div class="icon"><i class="fas fa-robot"></i></div>
-                <h4>混合架构</h4>
-                <p>Kotlin + Python 桥接。</p>
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="2" y="3" width="20" height="14" rx="2"/>
+                        <line x1="8" y1="21" x2="16" y2="21"/>
+                        <line x1="12" y1="17" x2="12" y2="21"/>
+                    </svg>
+                </div>
+                <h3>混合架构</h3>
+                <p>Kotlin + Python 桥接，兼顾原生性能与 Python 生态的灵活性。</p>
             </div>
         </div>
     </section>
 
-    <!-- ===== 架构设计 ===== -->
-    <section class="section">
-        <div class="section-title">
-            <i class="fas fa-sitemap"></i> 架构设计
-        </div>
-        <div class="arch-block">
-            ┌─────────────────────────────────────────┐
-            │ <span class="highlight">UI Layer (Compose)</span>          │
-            │ HomeScreen / ReaderScreen / Profile     │
-            │ SearchScreen / DetailScreen / ...       │
-            └──────────────┬──────────────────────────┘
-            │ <span class="highlight">StateFlow</span>
-            ┌──────────────▼──────────────────────────┐
-            │ <span class="highlight">ViewModel Layer</span>              │
-            │ HomeViewModel / ReaderViewModel /       │
-            │ AuthViewModel / FavoritesViewModel /    │
-            │ ComicDetailViewModel / ...              │
-            └──────────────┬──────────────────────────┘
-            │ <span class="highlight">Function Call</span>
-            ┌──────────────▼──────────────────────────┐
-            │ <span class="highlight">Kotlin Data Layer</span>           │
-            │ PythonService / CacheManager /          │
-            │ DownloadManager / DownloadService       │
-            └──────────────┬──────────────────────────┘
-            │ <span class="highlight">Chaquopy RPC</span>
-            ┌──────────────▼──────────────────────────┐
-            │ <span class="highlight">Python Bridge (jm_bridge.py)</span> │
-            │ jmcomic 库调用 / 图片下载与处理 /      │
-            │ 会话管理 / 批量并发下载                 │
-            └─────────────────────────────────────────┘
+    <!-- ===== 下载区域 ===== -->
+    <section class="downloads" id="downloads">
+        <h2 class="section-title">下载 YOMII</h2>
+        <p class="section-desc">
+            仅支持 Android arm64 设备，建议使用系统浏览器打开下载链接。
+        </p>
+        <div class="download-grid">
+            <a class="download-card" id="githubDownload"
+               href="https://github.com/1976764/jm-comic-android/releases/latest"
+               target="_blank" rel="noopener">
+                <div class="dl-icon">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.44 9.8 8.21 11.39.6.11.82-.26.82-.58v-2.03c-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.75.08-.73.08-.73 1.2.08 1.84 1.24 1.84 1.24 1.07 1.84 2.81 1.31 3.5 1 .11-.78.42-1.31.76-1.61-2.66-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.12-.3-.54-1.52.12-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6.01 0c2.29-1.55 3.3-1.23 3.3-1.23.66 1.66.24 2.88.12 3.18.77.84 1.24 1.91 1.24 3.22 0 4.61-2.81 5.63-5.48 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.83.58A12.01 12.01 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
+                    </svg>
+                </div>
+                <div class="dl-info">
+                    <h4>GitHub 最新版</h4>
+                    <p>官方仓库 · 版本 <span class="ver" id="githubVersionTag">v2.4</span></p>
+                </div>
+                <svg class="dl-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
+                </svg>
+            </a>
+
+            <a class="download-card" id="officialDownload"
+               href="https://jm-api-xray.xinsis.com/2.4/JM-arm64-release.apk">
+                <div class="dl-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+                    </svg>
+                </div>
+                <div class="dl-info">
+                    <h4>官方直接下载</h4>
+                    <p>高速直链 · 版本 <span class="ver" id="officialVersionTag">v2.4</span></p>
+                </div>
+                <svg class="dl-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
+                </svg>
+            </a>
         </div>
     </section>
 
-    <!-- ===== FOOTER ===== -->
-    <div class="footer-links">
-        <a href="https://github.com/1976764/jm-comic-android" target="_blank">
-            <i class="fab fa-github"></i> GitHub 仓库
-        </a>
-        <a href="https://github.com/1976764/jm-comic-android/blob/main/README.md" target="_blank">
-            <i class="fas fa-book"></i> README
-        </a>
-        <a href="https://github.com/1976764/jm-comic-android/blob/main/LICENSE" target="_blank">
-            <i class="fas fa-balance-scale"></i> 许可证
-        </a>
-        <span class="muted"><i class="fas fa-code"></i> 仅供学习交流</span>
-    </div>
+    <!-- ===== 页脚 ===== -->
+    <footer class="footer">
+        <div class="footer-links">
+            <a href="https://github.com/1976764/jm-comic-android" target="_blank" rel="noopener">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.44 9.8 8.21 11.39.6.11.82-.26.82-.58v-2.03c-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.75.08-.73.08-.73 1.2.08 1.84 1.24 1.84 1.24 1.07 1.84 2.81 1.31 3.5 1 .11-.78.42-1.31.76-1.61-2.66-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.12-.3-.54-1.52.12-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6.01 0c2.29-1.55 3.3-1.23 3.3-1.23.66 1.66.24 2.88.12 3.18.77.84 1.24 1.91 1.24 3.22 0 4.61-2.81 5.63-5.48 5.92.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.83.58A12.01 12.01 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
+                </svg>
+                GitHub
+            </a>
+            <a href="https://github.com/1976764/jm-comic-android/blob/main/README.md" target="_blank" rel="noopener">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+                </svg>
+                README
+            </a>
+            <a href="https://github.com/1976764/jm-comic-android/blob/main/LICENSE" target="_blank" rel="noopener">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                </svg>
+                许可证
+            </a>
+        </div>
+        <span class="footer-copy">仅供学习交流</span>
+    </footer>
 
-</div>
-
-<!-- ===== 悬浮图表弹窗 ===== -->
-<div id="chartPopup">
-    <div class="popup-header">
-        <span><i class="fas fa-chart-area"></i> 近30天活跃趋势</span>
-        <span class="popup-sub" id="popupRange">加载中…</span>
-    </div>
-    <canvas id="trendChart"></canvas>
-    <div class="popup-loading" id="popupLoading">正在加载数据…</div>
 </div>
 
 <script>
     // ============================================================
     //  配置
     // ============================================================
-    const STATS_API = 'https://jm-api.xinsis.com/api/stats?days=30';
-    const REFRESH_INTERVAL = 30000; // 30 秒
+    const GITHUB_REPO = '1976764/jm-comic-android';
+    const OFFICIAL_DOWNLOAD_BASE = 'https://jm-api-xray.xinsis.com';
+    const FALLBACK_VERSION = '2.4';
+
+    const LOGO_LIGHT = 'https://raw.githubusercontent.com/1976764/jm-comic-android/main/logo/l.png';
+    const LOGO_DARK  = 'https://raw.githubusercontent.com/1976764/jm-comic-android/main/logo/a.png';
 
     // ============================================================
-    //  状态
+    //  DOM
     // ============================================================
-    let chartInstance = null;        // Chart.js 实例
-    let statsDataCache = null;       // 缓存接口数据
-    let chartSignature = null;       // 图表当前所绘制数据的指纹
-    let currentDates = [];           // 当前图表对应的完整日期数组（供 tooltip 使用）
-
-    // DOM
-    const activeEl = document.getElementById('activeCount');
-    const timeEl = document.getElementById('updateTime');
-    const activeCard = document.getElementById('activeCard');
-    const chartPopup = document.getElementById('chartPopup');
-    const popupLoading = document.getElementById('popupLoading');
-    const popupRange = document.getElementById('popupRange');
-    const trendCanvas = document.getElementById('trendChart');
+    const navLogo = document.getElementById('navLogo');
+    const heroLogo = document.getElementById('heroLogo');
+    const githubDownload = document.getElementById('githubDownload');
+    const officialDownload = document.getElementById('officialDownload');
+    const githubVersionTag = document.getElementById('githubVersionTag');
+    const officialVersionTag = document.getElementById('officialVersionTag');
 
     // ============================================================
-    //  工具函数
+    //  Logo 主题切换
     // ============================================================
-
-    /** 获取当前上海时间的 YYYY-MM-DD */
-    function getTodayStr() {
-        return new Intl.DateTimeFormat('en-CA', {
-            timeZone: 'Asia/Shanghai',
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit'
-        }).format(new Date());
-    }
-
-    /** 格式化日期为 MM/DD */
-    function formatShortDate(dateStr) {
-        const parts = dateStr.split('-');
-        return parts[1] + '/' + parts[2];
-    }
-
-    /**
-     * 生成数据指纹。
-     * 只要任意一天的日期或人数发生变化，指纹就会改变，
-     * 用于判断“是否需要重绘图表”。
-     */
-    function computeSignature(data) {
-        if (!Array.isArray(data) || data.length === 0) return '';
-        return data.map(d => `${d.date}:${d.visitors}`).join('|');
-    }
-
-    /** 根据当前主题获取图表颜色配置 */
-    function getChartColors() {
-        const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        return {
-            lineColor: '#9e2a2b',
-            pointColor: '#9e2a2b',
-            pointHoverColor: '#c95454',
-            fillStart: 'rgba(158, 42, 43, 0.18)',
-            fillEnd: 'rgba(158, 42, 43, 0.02)',
-            gridColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
-            tickColor: isDark ? '#918a84' : '#8a8a8a',
-            tooltipBg: isDark ? 'rgba(36, 33, 32, 0.95)' : 'rgba(255, 255, 255, 0.95)',
-            tooltipTitle: isDark ? '#f2efec' : '#2c2c2c',
-            tooltipBody: isDark ? '#c2bdb8' : '#5a5a5a',
-            tooltipBorder: isDark ? '#3a3532' : '#e6e0d8'
-        };
+    function updateLogo() {
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        const src = isDark ? LOGO_DARK : LOGO_LIGHT;
+        navLogo.src = src;
+        heroLogo.src = src;
     }
 
     // ============================================================
-    //  数据获取
+    //  主题切换
     // ============================================================
+    const themeToggle = document.getElementById('themeToggle');
+    const iconSun = document.getElementById('iconSun');
+    const iconMoon = document.getElementById('iconMoon');
 
-    async function fetchStats() {
-        const response = await fetch(STATS_API, {
-            method: 'GET',
-            headers: { 'Accept': 'application/json' },
-            cache: 'no-store'
-        });
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)');
+    let theme = prefersDark.matches ? 'dark' : 'light';
 
-        if (!response.ok) {
-            throw new Error(`API 请求失败: ${response.status}`);
+    function applyTheme(t) {
+        if (t === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            iconSun.style.display = 'none';
+            iconMoon.style.display = 'block';
+            document.querySelector('meta[name="theme-color"]').setAttribute('content', '#000000');
+        } else {
+            document.documentElement.removeAttribute('data-theme');
+            iconSun.style.display = 'block';
+            iconMoon.style.display = 'none';
+            document.querySelector('meta[name="theme-color"]').setAttribute('content', '#f5f5f7');
         }
-
-        const result = await response.json();
-
-        if (!result.success || !Array.isArray(result.data)) {
-            throw new Error('API 返回数据格式错误');
-        }
-
-        return result.data; // [{ date: '2026-09-13', visitors: 123 }, ...]
+        updateLogo();
     }
 
-    // ============================================================
-    //  更新今日活跃人数
-    // ============================================================
+    applyTheme(theme);
 
-    function updateActiveFromStats(data) {
-        const today = getTodayStr();
-        const todayData = data.find(item => item.date === today);
-        const count = todayData ? Number(todayData.visitors) : 0;
-
-        if (Number.isFinite(count)) {
-            activeEl.textContent = Math.max(0, Math.round(count)).toLocaleString();
-        }
-
-        const now = new Date();
-        timeEl.textContent =
-            `更新于: ${now.toLocaleTimeString('zh-CN', { hour12: false })}`;
-    }
-
-    // ============================================================
-    //  创建 / 更新折线图
-    //  - 首次调用：创建 Chart 实例
-    //  - 后续调用：原地更新数据（无闪烁），并同步主题颜色
-    // ============================================================
-
-    function buildChart(data) {
-        const colors = getChartColors();
-        const labels = data.map(d => formatShortDate(d.date));
-        const values = data.map(d => Number(d.visitors));
-        const signature = computeSignature(data);
-
-        // 更新 tooltip 用的完整日期
-        currentDates = data.map(d => d.date);
-
-        // 更新范围文字
-        if (data.length >= 2) {
-            popupRange.textContent =
-                `${formatShortDate(data[0].date)} — ${formatShortDate(data[data.length - 1].date)}`;
-        }
-
-        // 隐藏 loading，显示 canvas
-        popupLoading.style.display = 'none';
-        trendCanvas.style.display = 'block';
-
-        // ---------- 已有实例：原地更新数据 ----------
-        if (chartInstance) {
-            const ds = chartInstance.data.datasets[0];
-
-            chartInstance.data.labels = labels;
-            ds.data = values;
-
-            ds.borderColor = colors.lineColor;
-            ds.pointBackgroundColor = colors.pointColor;
-            ds.pointBorderColor = colors.lineColor;
-            ds.pointHoverBackgroundColor = colors.pointHoverColor;
-            ds.pointHoverBorderColor = colors.lineColor;
-
-            chartInstance.options.plugins.tooltip.backgroundColor = colors.tooltipBg;
-            chartInstance.options.plugins.tooltip.titleColor = colors.tooltipTitle;
-            chartInstance.options.plugins.tooltip.bodyColor = colors.tooltipBody;
-            chartInstance.options.plugins.tooltip.borderColor = colors.tooltipBorder;
-
-            chartInstance.options.scales.x.grid.color = colors.gridColor;
-            chartInstance.options.scales.x.ticks.color = colors.tickColor;
-            chartInstance.options.scales.y.grid.color = colors.gridColor;
-            chartInstance.options.scales.y.ticks.color = colors.tickColor;
-
-            chartInstance.update();
-
-            chartSignature = signature;
-            return;
-        }
-
-        // ---------- 首次创建 ----------
-        const ctx = trendCanvas.getContext('2d');
-
-        const gradient = ctx.createLinearGradient(0, 0, 0, 180);
-        gradient.addColorStop(0, colors.fillStart);
-        gradient.addColorStop(1, colors.fillEnd);
-
-        chartInstance = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: '活跃人数',
-                    data: values,
-                    borderColor: colors.lineColor,
-                    borderWidth: 2,
-                    pointBackgroundColor: colors.pointColor,
-                    pointBorderColor: colors.lineColor,
-                    pointHoverBackgroundColor: colors.pointHoverColor,
-                    pointHoverBorderColor: colors.lineColor,
-                    pointRadius: 2,
-                    pointHoverRadius: 5,
-                    tension: 0.35,
-                    fill: true,
-                    backgroundColor: gradient,
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                animation: {
-                    duration: 600,
-                    easing: 'easeOutQuart'
-                },
-                interaction: {
-                    mode: 'index',
-                    intersect: false
-                },
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        backgroundColor: colors.tooltipBg,
-                        titleColor: colors.tooltipTitle,
-                        bodyColor: colors.tooltipBody,
-                        borderColor: colors.tooltipBorder,
-                        borderWidth: 1,
-                        padding: 10,
-                        cornerRadius: 8,
-                        displayColors: false,
-                        callbacks: {
-                            title: function (items) {
-                                // 从全局 currentDates 读取，保证数据更新后依然正确
-                                const idx = items[0].dataIndex;
-                                return currentDates[idx] || '';
-                            },
-                            label: function (item) {
-                                return `活跃人数: ${item.parsed.y.toLocaleString()}`;
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    x: {
-                        grid: { color: colors.gridColor, drawBorder: false },
-                        ticks: {
-                            color: colors.tickColor,
-                            font: { size: 10 },
-                            maxRotation: 0,
-                            autoSkip: true,
-                            maxTicksLimit: 8
-                        }
-                    },
-                    y: {
-                        beginAtZero: true,
-                        grid: { color: colors.gridColor, drawBorder: false },
-                        ticks: {
-                            color: colors.tickColor,
-                            font: { size: 10 },
-                            maxTicksLimit: 5,
-                            callback: function (v) {
-                                return v.toLocaleString();
-                            }
-                        }
-                    }
-                }
-            }
-        });
-
-        chartSignature = signature;
-    }
-
-    // ============================================================
-    //  悬停交互
-    // ============================================================
-
-    let showTimer = null;
-    let hideTimer = null;
-
-    activeCard.addEventListener('mouseenter', function () {
-        clearTimeout(hideTimer);
-
-        // 延迟 180ms 显示，避免快速划过时弹出
-        showTimer = setTimeout(async function () {
-            // 定位弹窗：卡片右侧或下方
-            const rect = activeCard.getBoundingClientRect();
-            const popupWidth = 480;
-
-            let left = rect.right + 16;
-            let top = rect.top;
-
-            if (left + popupWidth > window.innerWidth - 16) {
-                left = rect.left;
-                top = rect.bottom + 12;
-            }
-            if (top + 260 > window.innerHeight) {
-                top = window.innerHeight - 270;
-            }
-
-            chartPopup.style.left = left + 'px';
-            chartPopup.style.top = top + 'px';
-            chartPopup.classList.add('visible');
-
-            // ---------- 已缓存数据 ----------
-            if (statsDataCache) {
-                const cacheSig = computeSignature(statsDataCache);
-
-                // 图表已存在且数据未变化 → 无需重绘
-                if (chartInstance && chartSignature === cacheSig) {
-                    return;
-                }
-
-                // 数据有变化（或图表尚未创建）→ 用最新数据渲染
-                buildChart(statsDataCache);
-                return;
-            }
-
-            // ---------- 首次悬停：拉取数据 ----------
-            popupLoading.style.display = 'block';
-            trendCanvas.style.display = 'none';
-            popupRange.textContent = '加载中…';
-
-            try {
-                const data = await fetchStats();
-                statsDataCache = data;
-                buildChart(data);
-            } catch (err) {
-                console.error('获取趋势数据失败:', err);
-                popupLoading.textContent = '数据加载失败，请稍后重试';
-            }
-        }, 180);
+    themeToggle.addEventListener('click', () => {
+        theme = theme === 'dark' ? 'light' : 'dark';
+        applyTheme(theme);
     });
 
-    activeCard.addEventListener('mouseleave', function () {
-        clearTimeout(showTimer);
-        hideTimer = setTimeout(function () {
-            chartPopup.classList.remove('visible');
-        }, 200);
-    });
-
-    // 鼠标移入弹窗时保持显示
-    chartPopup.addEventListener('mouseenter', function () {
-        clearTimeout(hideTimer);
-    });
-
-    chartPopup.addEventListener('mouseleave', function () {
-        hideTimer = setTimeout(function () {
-            chartPopup.classList.remove('visible');
-        }, 200);
+    prefersDark.addEventListener('change', (e) => {
+        theme = e.matches ? 'dark' : 'light';
+        applyTheme(theme);
     });
 
     // ============================================================
-    //  主题切换：销毁旧实例后重建，保证渐变填充颜色正确
+    //  GitHub 版本号
     // ============================================================
-
-    window.matchMedia('(prefers-color-scheme: dark)')
-        .addEventListener('change', function () {
-            if (chartInstance) {
-                chartInstance.destroy();
-                chartInstance = null;
-                chartSignature = null;
-            }
-            if (statsDataCache && chartPopup.classList.contains('visible')) {
-                buildChart(statsDataCache);
-            }
-        });
-
-    // ============================================================
-    //  初始化 + 定时轮询
-    // ============================================================
-
-    /**
-     * 统一的刷新流程：
-     *  1. 拉取最新数据
-     *  2. 与缓存做指纹比对，判断数据是否真的发生变化
-     *  3. 更新今日活跃人数显示
-     *  4. 若数据变化且弹窗可见，则重绘图表
-     */
-    async function refreshStats() {
+    (async function fetchGitHubInfo() {
+        let version = FALLBACK_VERSION;
         try {
-            const data = await fetchStats();
-            const newSig = computeSignature(data);
-            const oldSig = statsDataCache ? computeSignature(statsDataCache) : '';
-            const changed = newSig !== oldSig;
-
-            statsDataCache = data;
-
-            // 今日人数始终更新
-            updateActiveFromStats(data);
-
-            // 数据未变化 → 不需要动图表
-            if (!changed) return;
-
-            // 数据已变化：
-            //  - 弹窗可见 → 立即重绘
-            //  - 弹窗不可见 → 只更新缓存，下次悬停时按指纹自动重绘
-            if (chartPopup.classList.contains('visible')) {
-                buildChart(data);
+            const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`);
+            if (res.ok) {
+                const data = await res.json();
+                const tag = (data.tag_name || '').trim();
+                const parsed = tag.replace(/^v/i, '').trim();
+                if (parsed) version = parsed;
             }
-        } catch (err) {
-            console.error('获取活跃数据失败:', err);
-            if (!statsDataCache) {
-                timeEl.textContent = '更新失败';
-            }
-        }
-    }
+        } catch (e) {}
 
-    // 初始加载
-    refreshStats();
+        const versionLabel = 'v' + version;
+        githubVersionTag.textContent = versionLabel;
+        officialVersionTag.textContent = versionLabel;
 
-    // 每 30 秒刷新一次
-    setInterval(refreshStats, REFRESH_INTERVAL);
-
-    // ============================================================
-    //  获取真实的 Stars（GitHub API）
-    // ============================================================
-    (function fetchGitHubStars() {
-        const starEl = document.getElementById('starCount');
-        const repo = '1976764/jm-comic-android';
-
-        fetch(`https://api.github.com/repos/${repo}`)
-            .then(res => {
-                if (!res.ok) throw new Error('GitHub API 请求失败');
-                return res.json();
-            })
-            .then(data => {
-                starEl.textContent = data.stargazers_count.toLocaleString();
-            })
-            .catch(() => {
-                starEl.textContent = '⭐ 1.2k (模拟)';
-            });
+        githubDownload.href = `https://github.com/${GITHUB_REPO}/releases/latest`;
+        officialDownload.href = `${OFFICIAL_DOWNLOAD_BASE}/${version}/JM-arm64-release.apk`;
     })();
+
+    // ============================================================
+    //  初始化 Logo
+    // ============================================================
+    updateLogo();
 </script>
 </body>
 </html>
