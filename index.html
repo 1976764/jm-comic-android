@@ -22,6 +22,13 @@
         })();
     </script>
     <title>YOMII · 漫画阅读客户端</title>
+
+    <!-- 预加载亮色 / 暗色两套 Logo，提前进入浏览器缓存 -->
+    <link rel="preload" as="image"
+          href="https://raw.githubusercontent.com/1976764/jm-comic-android/main/logo/l.png">
+    <link rel="preload" as="image"
+          href="https://raw.githubusercontent.com/1976764/jm-comic-android/main/logo/a.png">
+
     <!-- 标签页图标：跟随系统主题自动切换 -->
     <link rel="icon" type="image/png" 
           href="https://raw.githubusercontent.com/1976764/jm-comic-android/main/logo/l.png" 
@@ -740,7 +747,9 @@
 <nav class="nav">
     <div class="nav-inner">
         <a class="nav-brand" href="#">
-            <img class="nav-logo" id="navLogo" src="" alt="YOMII" />
+            <img class="nav-logo" id="navLogo"
+                 src="https://raw.githubusercontent.com/1976764/jm-comic-android/main/logo/l.png"
+                 alt="YOMII" />
             <span class="nav-name">YOMII</span>
         </a>
         <div class="nav-actions">
@@ -786,7 +795,9 @@
 
     <!-- ===== Hero 区域 ===== -->
     <section class="hero">
-        <img class="hero-logo" id="heroLogo" src="" alt="YOMII" />
+        <img class="hero-logo" id="heroLogo"
+             src="https://raw.githubusercontent.com/1976764/jm-comic-android/main/logo/l.png"
+             alt="YOMII" />
         <h1 class="hero-title">YOMII</h1>
         <p class="hero-subtitle">
             一款基于 Android 原生开发的漫画阅读客户端，采用 Jetpack Compose + Python 混合架构。
@@ -983,6 +994,21 @@
     const LOGO_DARK  = 'https://raw.githubusercontent.com/1976764/jm-comic-android/main/logo/a.png';
 
     // ============================================================
+    //  Logo 预缓存：让亮色 / 暗色两套图标提前进入浏览器缓存，
+    //  切换主题时直接命中，避免出现图标闪烁或延迟
+    // ============================================================
+    (function preloadLogos() {
+        [LOGO_LIGHT, LOGO_DARK].forEach(function (src) {
+            const img = new Image();
+            img.decoding = 'async';
+            img.src = src;
+            if (img.decode) {
+                img.decode().catch(function () {});
+            }
+        });
+    })();
+
+    // ============================================================
     //  DOM
     // ============================================================
     const navLogo = document.getElementById('navLogo');
@@ -993,13 +1019,13 @@
     const officialVersionTag = document.getElementById('officialVersionTag');
 
     // ============================================================
-    //  Logo 主题切换
+    //  Logo 主题切换（避免重复赋值同一 src）
     // ============================================================
     function updateLogo() {
         const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
         const src = isDark ? LOGO_DARK : LOGO_LIGHT;
-        navLogo.src = src;
-        heroLogo.src = src;
+        if (navLogo.getAttribute('src') !== src) navLogo.setAttribute('src', src);
+        if (heroLogo.getAttribute('src') !== src) heroLogo.setAttribute('src', src);
     }
 
     // ============================================================
