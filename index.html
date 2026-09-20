@@ -179,6 +179,166 @@
         .nav-btn:active { transform: scale(0.88); }
         .nav-btn svg { width: 20px; height: 20px; }
 
+        /* ================= 今日上线人数 ================= */
+        .nav-stats {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .stats-pill {
+            height: 36px;
+            padding: 0 14px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid var(--card-border);
+            border-radius: 999px;
+            background: var(--fill);
+            color: var(--text-1);
+            font: inherit;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: background 0.2s ease, border-color 0.2s ease,
+                        transform 0.15s cubic-bezier(.34, 1.3, .6, 1);
+        }
+        .stats-pill:hover { background: var(--fill-2); border-color: var(--text-3); }
+        .stats-pill:active { transform: scale(0.95); }
+
+        .stats-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #30d158;
+            box-shadow: 0 0 0 3px rgba(48, 209, 88, 0.18);
+            flex-shrink: 0;
+            animation: statsPulse 2.4s ease-in-out infinite;
+        }
+        @keyframes statsPulse {
+            0%, 100% { opacity: 1; }
+            50%      { opacity: 0.35; }
+        }
+
+        .stats-label { color: var(--text-2); font-weight: 600; }
+        .stats-value {
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* ---- 悬停浮层 ---- */
+        .stats-popover {
+            position: absolute;
+            top: calc(100% + 12px);
+            right: 0;
+            width: 348px;
+            max-width: calc(100vw - 32px);
+            padding: 16px 16px 12px;
+            background: var(--bg-card);
+            border: 1px solid var(--card-border);
+            border-radius: 18px;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transform: translateY(-6px) scale(0.98);
+            transform-origin: top right;
+            transition: opacity 0.22s ease,
+                        transform 0.22s cubic-bezier(.34, 1.3, .6, 1),
+                        visibility 0.22s ease;
+            z-index: 120;
+        }
+        [data-theme="dark"] .stats-popover {
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.75);
+        }
+        /* 鼠标从胶囊移到浮层时的过渡桥接区 */
+        .stats-popover::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: -14px;
+            height: 14px;
+        }
+        .nav-stats.is-open .stats-popover {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+            transform: translateY(0) scale(1);
+        }
+
+        .stats-pop-head {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+        .stats-pop-title {
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+            color: var(--text-1);
+        }
+        .stats-pop-sub {
+            font-size: 11.5px;
+            font-weight: 600;
+            color: var(--text-3);
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+        }
+
+        .stats-chart-wrap { position: relative; }
+
+        .stats-chart {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+        .stats-chart .grid-line {
+            stroke: var(--divider);
+            stroke-width: 1;
+            stroke-dasharray: 3 4;
+        }
+        .stats-chart .area { fill: url(#statsAreaGrad); }
+        .stats-chart .line {
+            fill: none;
+            stroke: var(--text-1);
+            stroke-width: 1.8;
+            stroke-linejoin: round;
+            stroke-linecap: round;
+        }
+        .stats-chart .last-dot { fill: var(--text-1); }
+        .stats-chart .hover-line {
+            stroke: var(--text-3);
+            stroke-width: 1;
+            stroke-dasharray: 3 3;
+        }
+        .stats-chart .hover-dot {
+            fill: var(--bg-card);
+            stroke: var(--text-1);
+            stroke-width: 2;
+        }
+        .stats-chart .axis-label {
+            fill: var(--text-3);
+            font-size: 9.5px;
+            font-weight: 600;
+        }
+
+        .stats-msg {
+            position: absolute;
+            inset: 0;
+            display: grid;
+            place-items: center;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-3);
+            background: var(--bg-card);
+        }
+        .stats-msg[hidden] { display: none; }
+
         /* ================= 页面容器 ================= */
         .page {
             width: 100%;
@@ -504,6 +664,20 @@
             .nav-logo { width: 28px; height: 28px; }
             .nav-brand { gap: 10px; }
 
+            /* 浮层改为相对导航栏定位，避免超出屏幕 */
+            .nav-stats { position: static; }
+            .stats-pill { height: 32px; padding: 0 11px; font-size: 12px; gap: 6px; }
+            .stats-label { display: none; }
+            .stats-dot { width: 6px; height: 6px; box-shadow: 0 0 0 2.5px rgba(48, 209, 88, 0.18); }
+            .stats-popover {
+                left: 12px;
+                right: 12px;
+                width: auto;
+                max-width: none;
+                padding: 14px 14px 10px;
+                border-radius: 16px;
+            }
+
             .hero { padding: 48px 0 40px; }
             .hero-logo { width: 64px; height: 64px; border-radius: 16px; margin-bottom: 18px; }
             .hero-title { font-size: 30px; letter-spacing: -0.03em; }
@@ -553,6 +727,27 @@
             <span class="nav-name">YOMII</span>
         </a>
         <div class="nav-actions">
+
+            <!-- ===== 今日上线人数 + 30 天折线图 ===== -->
+            <div class="nav-stats" id="navStats">
+                <button class="stats-pill" id="statsPill" type="button" aria-label="今日上线人数">
+                    <span class="stats-dot"></span>
+                    <span class="stats-label">今日上线</span>
+                    <span class="stats-value" id="statsToday">--</span>
+                </button>
+                <div class="stats-popover" id="statsPopover" role="tooltip">
+                    <div class="stats-pop-head">
+                        <span class="stats-pop-title">近 30 天上线人数</span>
+                        <span class="stats-pop-sub" id="statsRange">—</span>
+                    </div>
+                    <div class="stats-chart-wrap">
+                        <svg class="stats-chart" id="statsChart"
+                             viewBox="0 0 320 130" aria-hidden="true"></svg>
+                        <div class="stats-msg" id="statsMsg">加载中…</div>
+                    </div>
+                </div>
+            </div>
+
             <button class="nav-btn" id="themeToggle" aria-label="切换主题">
                 <svg id="iconSun" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                      stroke-width="1.8" stroke-linecap="round">
@@ -825,6 +1020,257 @@
     prefersDark.addEventListener('change', (e) => {
         theme = e.matches ? 'dark' : 'light';
         applyTheme(theme);
+    });
+
+    // ============================================================
+    //  今日上线人数 + 近 30 天折线图
+    // ============================================================
+    const STATS_API = 'https://jm-api.xinsis.com/api/stats?days=30';
+
+    const navStatsEl   = document.getElementById('navStats');
+    const statsPillEl  = document.getElementById('statsPill');
+    const statsChartEl = document.getElementById('statsChart');
+    const statsTodayEl = document.getElementById('statsToday');
+    const statsRangeEl = document.getElementById('statsRange');
+    const statsMsgEl   = document.getElementById('statsMsg');
+
+    // SVG 内部坐标系尺寸
+    const CHART_W = 320;
+    const CHART_H = 130;
+    const PAD = { l: 8, r: 8, t: 14, b: 22 };
+
+    const statsState = { series: [], pts: [], ready: false };
+
+    // ---------- 工具函数 ----------
+    const pad2 = (n) => String(n).padStart(2, '0');
+    const dateKey = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+    const shortDate = (key) => {
+        const p = String(key).split('-');
+        return p.length >= 3 ? `${p[1]}-${p[2]}` : String(key);
+    };
+
+    // ---------- 把接口数据补全成连续的 30 天序列 ----------
+    function buildSeries(json) {
+        const rows = Array.isArray(json.data) ? json.data : [];
+        const map = new Map();
+        rows.forEach((r) => {
+            if (r && r.date) map.set(r.date, Number(r.visitors) || 0);
+        });
+
+        if (!json.start_date || !json.end_date) {
+            return rows
+                .filter((r) => r && r.date)
+                .map((r) => ({ date: r.date, visitors: Number(r.visitors) || 0 }))
+                .sort((a, b) => a.date.localeCompare(b.date));
+        }
+
+        const start = new Date(json.start_date + 'T00:00:00');
+        const end   = new Date(json.end_date + 'T00:00:00');
+        if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return [];
+
+        const out = [];
+        for (let d = new Date(start); d.getTime() <= end.getTime(); d.setDate(d.getDate() + 1)) {
+            const key = dateKey(d);
+            out.push({ date: key, visitors: map.get(key) || 0 });
+        }
+        return out;
+    }
+
+    function rangeLabel(series) {
+        if (!series.length) return '—';
+        return `${shortDate(series[0].date)} ~ ${shortDate(series[series.length - 1].date)}`;
+    }
+
+    // ---------- 绘制折线图 ----------
+    function renderChart(series) {
+        const n = series.length;
+        if (!n) return;
+
+        const plotW = CHART_W - PAD.l - PAD.r;
+        const plotH = CHART_H - PAD.t - PAD.b;
+        const baseY = PAD.t + plotH;
+        const maxV  = Math.max(1, ...series.map((d) => d.visitors));
+
+        const xAt = (i) => (n <= 1 ? PAD.l + plotW / 2 : PAD.l + (plotW * i) / (n - 1));
+        const yAt = (v) => baseY - (v / maxV) * plotH;
+
+        const pts = series.map((d, i) => ({ x: xAt(i), y: yAt(d.visitors), data: d }));
+
+        const lineD = pts
+            .map((p, i) => `${i ? 'L' : 'M'}${p.x.toFixed(2)},${p.y.toFixed(2)}`)
+            .join(' ');
+        const areaD =
+            `M${pts[0].x.toFixed(2)},${baseY.toFixed(2)} ` +
+            pts.map((p) => `L${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(' ') +
+            ` L${pts[n - 1].x.toFixed(2)},${baseY.toFixed(2)} Z`;
+
+        // 横向网格线
+        const grid = [PAD.t, PAD.t + plotH / 2, baseY]
+            .map((y) => `<line class="grid-line" x1="${PAD.l}" y1="${y.toFixed(2)}" ` +
+                        `x2="${CHART_W - PAD.r}" y2="${y.toFixed(2)}"/>`)
+            .join('');
+
+        // 横轴日期（首 / 中 / 尾）
+        const idxs = [...new Set(n <= 2 ? [0, n - 1] : [0, Math.floor((n - 1) / 2), n - 1])]
+            .filter((i) => i >= 0 && i < n);
+        const labels = idxs
+            .map((i, k) => {
+                const anchor = idxs.length === 1 ? 'middle'
+                    : k === 0 ? 'start'
+                    : k === idxs.length - 1 ? 'end'
+                    : 'middle';
+                return `<text class="axis-label" x="${xAt(i).toFixed(2)}" y="${CHART_H - 6}" ` +
+                       `text-anchor="${anchor}">${shortDate(series[i].date)}</text>`;
+            })
+            .join('');
+
+        const last = pts[n - 1];
+
+        statsChartEl.innerHTML = `
+            <defs>
+                <linearGradient id="statsAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" style="stop-color:var(--text-1);stop-opacity:0.22"/>
+                    <stop offset="100%" style="stop-color:var(--text-1);stop-opacity:0"/>
+                </linearGradient>
+            </defs>
+            ${grid}
+            <path class="area" d="${areaD}"/>
+            <path class="line" d="${lineD}"/>
+            <line class="hover-line" id="statsHoverLine" x1="0" x2="0"
+                  y1="${PAD.t}" y2="${baseY.toFixed(2)}" style="display:none"/>
+            <circle class="last-dot" cx="${last.x.toFixed(2)}" cy="${last.y.toFixed(2)}" r="2.6"/>
+            <circle class="hover-dot" id="statsHoverDot" cx="0" cy="0" r="3.6" style="display:none"/>
+            ${labels}
+        `;
+
+        statsState.series = series;
+        statsState.pts = pts;
+        statsState.ready = true;
+    }
+
+    // ---------- 悬停高亮 ----------
+    function updateHover(clientX) {
+        const st = statsState;
+        if (!st.ready || !st.pts.length) return;
+
+        const rect = statsChartEl.getBoundingClientRect();
+        if (!rect.width) return;
+
+        const plotW = CHART_W - PAD.l - PAD.r;
+        const n = st.pts.length;
+        const vx = ((clientX - rect.left) / rect.width) * CHART_W;
+
+        let i = n <= 1 ? 0 : Math.round(((vx - PAD.l) / plotW) * (n - 1));
+        i = Math.max(0, Math.min(n - 1, i));
+
+        const p = st.pts[i];
+        const line = document.getElementById('statsHoverLine');
+        const dot  = document.getElementById('statsHoverDot');
+        if (!line || !dot) return;
+
+        line.style.display = '';
+        line.setAttribute('x1', p.x.toFixed(2));
+        line.setAttribute('x2', p.x.toFixed(2));
+
+        dot.style.display = '';
+        dot.setAttribute('cx', p.x.toFixed(2));
+        dot.setAttribute('cy', p.y.toFixed(2));
+
+        statsRangeEl.textContent = `${shortDate(p.data.date)} · ${p.data.visitors} 人`;
+    }
+
+    function clearHover() {
+        const line = document.getElementById('statsHoverLine');
+        const dot  = document.getElementById('statsHoverDot');
+        if (line) line.style.display = 'none';
+        if (dot)  dot.style.display  = 'none';
+        if (statsState.series.length) statsRangeEl.textContent = rangeLabel(statsState.series);
+    }
+
+    statsChartEl.addEventListener('mousemove', (e) => updateHover(e.clientX));
+    statsChartEl.addEventListener('mouseleave', clearHover);
+    statsChartEl.addEventListener('touchstart', (e) => {
+        if (e.touches[0]) updateHover(e.touches[0].clientX);
+    }, { passive: true });
+    statsChartEl.addEventListener('touchmove', (e) => {
+        if (e.touches[0]) updateHover(e.touches[0].clientX);
+    }, { passive: true });
+    statsChartEl.addEventListener('touchend', clearHover);
+
+    // ---------- 数据加载 ----------
+    async function loadStats() {
+        try {
+            const res = await fetch(STATS_API, { cache: 'no-store' });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+
+            const json = await res.json();
+            if (!json || json.success !== true) throw new Error('接口返回异常');
+
+            const series = buildSeries(json);
+            if (!series.length) throw new Error('暂无数据');
+
+            const today = series[series.length - 1];
+            statsTodayEl.textContent = today.visitors;
+            statsRangeEl.textContent = rangeLabel(series);
+
+            statsMsgEl.hidden = true;
+            renderChart(series);
+        } catch (err) {
+            statsTodayEl.textContent = '--';
+            statsRangeEl.textContent = '—';
+            statsMsgEl.hidden = false;
+            statsMsgEl.textContent = '暂时无法获取数据';
+            statsState.ready = false;
+        }
+    }
+    loadStats();
+
+    // ---------- 浮层展开 / 收起 ----------
+    const canHover = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+
+    let statsPinned = false;
+    let statsCloseTimer = null;
+
+    function openStatsPopover() {
+        clearTimeout(statsCloseTimer);
+        navStatsEl.classList.add('is-open');
+    }
+
+    function closeStatsPopover() {
+        clearTimeout(statsCloseTimer);
+        navStatsEl.classList.remove('is-open');
+        statsPinned = false;
+        clearHover();
+    }
+
+    navStatsEl.addEventListener('mouseenter', () => {
+        if (canHover) openStatsPopover();
+    });
+
+    navStatsEl.addEventListener('mouseleave', () => {
+        if (!canHover || statsPinned) return;
+        statsCloseTimer = setTimeout(() => {
+            navStatsEl.classList.remove('is-open');
+            clearHover();
+        }, 90);
+    });
+
+    statsPillEl.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const willOpen = !navStatsEl.classList.contains('is-open');
+        statsPinned = willOpen;
+        navStatsEl.classList.toggle('is-open', willOpen);
+        if (!willOpen) clearHover();
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!navStatsEl.contains(e.target) && navStatsEl.classList.contains('is-open')) {
+            closeStatsPopover();
+        }
+    });
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeStatsPopover();
     });
 
     // ============================================================
