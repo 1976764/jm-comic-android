@@ -23,6 +23,12 @@
 </script>
 <title>在 App 中打开 · YOMII</title>
 
+<!-- 预加载：亮色 / 暗色两套 Logo 提前进入浏览器缓存 -->
+<link rel="preload" as="image"
+      href="https://raw.githubusercontent.com/1976764/jm-comic-android/main/logo/l.png">
+<link rel="preload" as="image"
+      href="https://raw.githubusercontent.com/1976764/jm-comic-android/main/logo/a.png">
+
 <link rel="icon" type="image/png"
       href="https://raw.githubusercontent.com/1976764/jm-comic-android/main/logo/l.png"
       media="(prefers-color-scheme: light)">
@@ -301,41 +307,56 @@ h1{
       const card = document.getElementById('card');
       const id = (new URLSearchParams(location.search).get('c') || '').trim();
 
-      function setTheme(theme, save = false) {
-          root.setAttribute('data-theme', theme);
-      
+      /* ========== Logo 资源 ========== */
+      const LOGO_LIGHT = 'https://raw.githubusercontent.com/1976764/jm-comic-android/main/logo/l.png';
+      const LOGO_DARK  = 'https://raw.githubusercontent.com/1976764/jm-comic-android/main/logo/a.png';
+
+      /* 提前把亮色 / 暗色两套 Logo 下载并解码进缓存，
+         切换主题时直接命中缓存，不会出现加载闪烁 */
+      (function preloadLogos(){
+          [LOGO_LIGHT, LOGO_DARK].forEach(function(src){
+              const img = new Image();
+              img.decoding = 'async';
+              img.src = src;
+              if (img.decode) {
+                  img.decode().catch(function(){});
+              }
+          });
+      })();
+
+      /* ========== 主题 ========== */
+      function setTheme(theme, save) {
           const dark = theme === 'dark';
-      
-          const logoSrc = dark
-              ? 'https://raw.githubusercontent.com/1976764/jm-comic-android/main/logo/a.png'
-              : 'https://raw.githubusercontent.com/1976764/jm-comic-android/main/logo/l.png';
-      
-          navLogo.src = logoSrc;
-          logo.src = logoSrc;
-      
-          document.querySelector('meta[name="theme-color"]')
-              ?.setAttribute('content', dark ? '#000000' : '#f5f5f7');
-      
+
+          root.setAttribute('data-theme', theme);
+
+          const logoSrc = dark ? LOGO_DARK : LOGO_LIGHT;
+          if (navLogo.getAttribute('src') !== logoSrc) navLogo.setAttribute('src', logoSrc);
+          if (logo.getAttribute('src') !== logoSrc) logo.setAttribute('src', logoSrc);
+
+          const meta = document.querySelector('meta[name="theme-color"]');
+          if (meta) meta.setAttribute('content', dark ? '#000000' : '#f5f5f7');
+
           if (save) {
               localStorage.setItem('yomii-theme', theme);
           }
       }
-      
+
       const savedTheme = localStorage.getItem('yomii-theme');
-      
+
       let theme =
           savedTheme ||
           (matchMedia('(prefers-color-scheme: dark)').matches
               ? 'dark'
               : 'light');
-      
+
       setTheme(theme, false);
-      
+
       themeBtn.addEventListener('click', function () {
           theme = theme === 'dark' ? 'light' : 'dark';
           setTheme(theme, true);
       });
-      
+
       matchMedia('(prefers-color-scheme: dark)')
           .addEventListener('change', function (e) {
               if (!localStorage.getItem('yomii-theme')) {
@@ -344,32 +365,22 @@ h1{
               }
           });
 
-      const saved = localStorage.getItem('yomii-theme');
-      if(saved){
-      setTheme(saved);
-      }else{
-      setTheme(matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-      }
-      
-      themeBtn.addEventListener('click', function(){
-      setTheme(root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
-      });
-      
+      /* ========== 分享链接解析 ========== */
       const openBtn = document.getElementById('open');
       const pill = document.getElementById('pill');
       const sub = document.getElementById('sub');
       const hint = document.getElementById('hint');
-      
+
       if(!id){
-      card.classList.add('is-error');
-      pill.parentElement.parentElement.style.display = 'none';
-      sub.textContent = '这个分享链接缺少漫画编号，请回到 YOMII 重新分享一次。';
-      openBtn.style.display = 'none';
-      hint.innerHTML = '你可以返回首页下载 App，或在 App 中重新生成漫画分享链接。';
-      document.getElementById('title').textContent = '无法打开这本漫画';
-      return;
+          card.classList.add('is-error');
+          pill.parentElement.parentElement.style.display = 'none';
+          sub.textContent = '这个分享链接缺少漫画编号，请回到 YOMII 重新分享一次。';
+          openBtn.style.display = 'none';
+          hint.innerHTML = '你可以返回首页下载 App，或在 App 中重新生成漫画分享链接。';
+          document.getElementById('title').textContent = '无法打开这本漫画';
+          return;
       }
-      
+
       pill.textContent = '漫画 ID：' + id;
       openBtn.href = 'yomii://comic/' + encodeURIComponent(id);
 })();
