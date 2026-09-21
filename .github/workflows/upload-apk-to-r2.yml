@@ -106,7 +106,9 @@ jobs:
             --endpoint-url "${R2_ENDPOINT}" \
             --delimiter "/" \
             --query "CommonPrefixes[].Prefix" \
-            --output text > prefixes.txt
+            --output text \
+            | tr '\t' '\n' > prefixes.txt
+
 
           if [ ! -s prefixes.txt ]; then
             echo "没有找到版本目录"
