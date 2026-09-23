@@ -99,82 +99,72 @@ jobs:
           R2_BUCKET: ${{ secrets.R2_BUCKET }}
         run: |
           echo "开始检查旧版本..."
-
-          # 获取所有版本目录
+      
+          # 获取 R2 中所有版本目录
           aws s3api list-objects-v2 \
             --bucket "${R2_BUCKET}" \
             --endpoint-url "${R2_ENDPOINT}" \
             --delimiter "/" \
             --query "CommonPrefixes[].Prefix" \
             --output text \
-            | tr '\t' '\n' > prefixes.txt
-
-
-          if [ ! -s prefixes.txt ]; then
+            | tr '\t' '\n' \
+            | sed 's:/$::' \
+            | sed '/^$/d' > versions.txt
+      
+          if [ ! -s versions.txt ]; then
             echo "没有找到版本目录"
             exit 0
           fi
-
+      
           echo "当前版本目录："
-          cat prefixes.txt
-
-          # 去掉结尾的 /
-          sed 's:/$::' prefixes.txt > versions.txt
-
-          # 获取版本数量
-          COUNT=$(wc -l < versions.txt)
-
+          cat versions.txt
+      
+          # 按版本号排序
+          sort -V versions.txt > sorted_versions.txt
+      
+          echo ""
+          echo "版本排序："
+          cat sorted_versions.txt
+      
+          COUNT=$(wc -l < sorted_versions.txt | tr -d ' ')
+      
+          echo ""
           echo "当前共有 ${COUNT} 个版本"
-
-          # 如果不超过 3 个，不需要删除
+      
           if [ "$COUNT" -le 3 ]; then
             echo "版本数量未超过 3 个，无需清理"
             exit 0
           fi
-
-          # 使用 Release 的创建时间进行排序
-          echo "获取 Release 时间..."
-
-          gh release list \
-            --repo "${{ github.repository }}" \
-            --limit 100 \
-            --exclude-drafts \
-            --exclude-pre-releases \
-            --json tagName,createdAt \
-            --jq '.[] | "\(.createdAt) \(.tagName)"' \
-            | sort -r > releases.txt
-
-          # 找出需要删除的版本
-          echo "检查需要删除的版本..."
-
-          KEEP=0
-
-          while read -r LINE; do
-            TAG=$(echo "$LINE" | cut -d' ' -f2-)
-
-            if grep -Fxq "$TAG" versions.txt; then
-              KEEP=$((KEEP + 1))
-
-              if [ "$KEEP" -le 3 ]; then
-                echo "保留：$TAG"
-              else
-                echo "删除：$TAG"
-
-                aws s3 rm \
-                  "s3://${R2_BUCKET}/${TAG}/" \
-                  --recursive \
-                  --endpoint-url "${R2_ENDPOINT}"
-              fi
-            fi
-          done < releases.txt
-
+      
+          DELETE_COUNT=$((COUNT - 3))
+      
+          echo ""
+          echo "需要删除 ${DELETE_COUNT} 个旧版本"
+      
+          # 删除最旧的版本，只保留最后 3 个
+          head -n "$DELETE_COUNT" sorted_versions.txt | while read -r TAG; do
+      
+            echo "删除旧版本：${TAG}"
+      
+            aws s3 rm \
+              "s3://${R2_BUCKET}/${TAG}/" \
+              --recursive \
+              --endpoint-url "${R2_ENDPOINT}"
+      
+            echo "删除完成：${TAG}/"
+      
+          done
+      
+          echo ""
           echo "旧版本清理完成"
-
+      
+          echo ""
           echo "当前 R2 版本："
-
+      
           aws s3api list-objects-v2 \
             --bucket "${R2_BUCKET}" \
             --endpoint-url "${R2_ENDPOINT}" \
             --delimiter "/" \
             --query "CommonPrefixes[].Prefix" \
-            --output text
+            --output text \
+            | tr '\t' '\n'
