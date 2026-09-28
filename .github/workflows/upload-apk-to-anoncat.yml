@@ -13,6 +13,8 @@ jobs:
       contents: read
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
       # 1. 确定 Release 标签
       - name: Get Release Tag
         id: release
