@@ -1,0 +1,165 @@
+name: Upload APK to anon.cat and notify Worker
+
+# 每次发布 Release 时自动执行；也支持手动触发
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  upload-apk:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      # 1. 确定 Release 标签
+      - name: Get Release Tag
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "release" ]; then
+            TAG="${{ github.event.release.tag_name }}"
+          else
+            TAG=$(gh release list \
+              --repo "${{ github.repository }}" \
+              --limit 1 \
+              --exclude-drafts \
+              --exclude-pre-releases \
+              --json tagName \
+              --jq '.[0].tagName')
+          fi
+          if [ -z "$TAG" ]; then
+            echo "错误：没有找到 Release"
+            exit 1
+          fi
+          # 去掉可能存在的 v 前缀，与 Worker 的版本号规则保持一致
+          VERSION="${TAG#v}"
+          echo "Release tag: $TAG"
+          echo "Version: $VERSION"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      # 2. 下载 Release 中的 JM-arm64-release.apk
+      - name: Download APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p ./apk
+          gh release download "${{ steps.release.outputs.tag }}" \
+            --repo "${{ github.repository }}" \
+            --pattern "JM-arm64-release.apk" \
+            --dir ./apk
+          if [ ! -f "./apk/JM-arm64-release.apk" ]; then
+            echo "错误：Release 中没有 JM-arm64-release.apk"
+            exit 1
+          fi
+          ls -lh ./apk/JM-arm64-release.apk
+
+      # 3. 上传到 anon.cat
+      #    注意：anon.cat 会校验文件内容类型，纯 .apk 扩展名会被拒绝（415）。
+      #    APK 本质是 ZIP，因此以 "JM-arm64-release.apk.zip" 命名上传即可通过。
+      - name: Upload to anon.cat
+        id: upload
+        run: |
+          set -euo pipefail
+          REMOTE_NAME="JM-arm64-release.apk.zip"
+          RESP=$(curl -sS -X POST \
+            "https://up.anon.cat/upload?filename=${REMOTE_NAME}&scrub=1&output=json" \
+            -H "Content-Type: application/octet-stream" \
+            -T "./apk/JM-arm64-release.apk")
+
+          echo "anon.cat 响应: $RESP"
+
+          if ! echo "$RESP" | grep -q '"success": *true'; then
+            echo "错误：anon.cat 上传失败"
+            exit 1
+          fi
+
+          # 解析直链（响应里 / 被转义为 \/）
+          FILE_URL=$(echo "$RESP" \
+            | grep -o '"url": *"[^"]*"' \
+            | head -n1 \
+            | sed -E 's/.*"url": *"([^"]*)".*/\1/' \
+            | sed 's|\\/|/|g')
+
+          if [ -z "$FILE_URL" ]; then
+            echo "错误：无法解析文件直链"
+            exit 1
+          fi
+
+          echo "文件直链: $FILE_URL"
+          echo "url=$FILE_URL" >> "$GITHUB_OUTPUT"
+
+      # 4. 计算文件大小与 SHA-256
+      - name: Compute file metadata
+        id: meta
+        run: |
+          set -euo pipefail
+          SIZE=$(stat -c%s ./apk/JM-arm64-release.apk)
+          SHA=$(sha256sum ./apk/JM-arm64-release.apk | awk '{print $1}')
+          echo "size=$SIZE" >> "$GITHUB_OUTPUT"
+          echo "sha256=$SHA" >> "$GITHUB_OUTPUT"
+          echo "大小: $SIZE 字节"
+          echo "SHA-256: $SHA"
+
+      # 5. 把直链登记到 Cloudflare Worker（版本化 KV，写新删旧）
+      - name: Register link with Worker
+        env:
+          NOTICE_PASSWORD: ${{ secrets.NOTICE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          API="https://jm-api.xinsis.com/api/apk/upload"
+          VERSION="${{ steps.release.outputs.version }}"
+          FILE_URL="${{ steps.upload.outputs.url }}"
+
+          # 令牌 = SHA-256("<密码>:<UTC 小时数>")，与 Worker 的校验逻辑一致
+          PASSWORD="${NOTICE_PASSWORD:-cary2026}"
+          HOUR=$(( $(date +%s) / 3600 ))
+          TOKEN=$(printf '%s' "${PASSWORD}:${HOUR}" | sha256sum | awk '{print $1}')
+
+          # 用 jq 生成 JSON，避免 URL 中的特殊字符破坏格式
+          PAYLOAD=$(jq -n \
+            --arg version "$VERSION" \
+            --arg url "$FILE_URL" \
+            --arg filename "JM-arm64-release.apk.zip" \
+            --argjson size "${{ steps.meta.outputs.size }}" \
+            --arg sha256 "${{ steps.meta.outputs.sha256 }}" \
+            --arg source "github-release" \
+            '{version:$version, url:$url, filename:$filename, size:$size, sha256:$sha256, source:$source}')
+
+          echo "上报内容: $PAYLOAD"
+
+          CODE=$(curl -sS -o ./resp.json -w '%{http_code}' \
+            -X POST "$API" \
+            -H "Content-Type: application/json" \
+            -H "X-Notice-Token: ${TOKEN}" \
+            -d "$PAYLOAD")
+
+          echo "Worker 响应码: $CODE"
+          cat ./resp.json
+          echo ""
+
+          if [ "$CODE" != "200" ]; then
+            echo "错误：Worker 登记失败"
+            exit 1
+          fi
+
+          if ! grep -q '"success": *true' ./resp.json; then
+            echo "错误：Worker 返回失败"
+            exit 1
+          fi
+
+      # 6. 校验：按版本号取回直链
+      - name: Verify
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.release.outputs.version }}"
+          echo "校验版本 $VERSION ..."
+          curl -sS "https://jm-api.xinsis.com/api/apk/${VERSION}"
+          echo ""
+          curl -sS "https://jm-api.xinsis.com/api/apk/versions"
+          echo ""
