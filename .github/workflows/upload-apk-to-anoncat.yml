@@ -1,4 +1,4 @@
-name: Upload APK to anon.cat and notify Worker
+name: Upload APK to anon.cat / filetourl.org and notify Worker
 
 # 每次发布 Release 时自动执行；也支持手动触发
 on:
@@ -94,6 +94,40 @@ jobs:
           echo "文件直链: $FILE_URL"
           echo "url=$FILE_URL" >> "$GITHUB_OUTPUT"
 
+      # 3.5 上传到 filetourl.org（免费额度：单文件 <= 49MB，每天最多 3 次）
+      #     走逆向得到的 4 步流程：prepare -> Supabase 签名 PUT -> record -> /f/<slug>
+      #     该站点为「尽力而为」的备用来源：配额耗尽或失败时不阻断主流程。
+      - name: Upload to filetourl.org
+        id: upload_ftu
+        continue-on-error: true
+        run: |
+          set -uo pipefail
+          echo "url=" >> "$GITHUB_OUTPUT"
+
+          SIZE=$(stat -c%s ./apk/JM-arm64-release.apk)
+          MAX=$((49 * 1024 * 1024))
+          if [ "$SIZE" -gt "$MAX" ]; then
+            echo "警告：文件 ${SIZE} 字节超过 filetourl.org 免费额度上限，跳过上传"
+            exit 0
+          fi
+
+          if ! python3 .github/scripts/filetourl_upload.py \
+                 ./apk/JM-arm64-release.apk ./filetourl_url.txt; then
+            echo "警告：filetourl.org 上传失败（可能是当日免费额度已用完），仅登记 anon.cat 直链"
+            exit 0
+          fi
+
+          FTU_URL=$(cat ./filetourl_url.txt 2>/dev/null || true)
+          if [ -z "$FTU_URL" ]; then
+            echo "警告：filetourl.org 直链为空，仅登记 anon.cat 直链"
+            exit 0
+          fi
+
+          echo "filetourl.org 直链: $FTU_URL"
+          # 覆盖掉前面写入的空值
+          sed -i '/^url=$/d' "$GITHUB_OUTPUT" 2>/dev/null || true
+          echo "url=$FTU_URL" >> "$GITHUB_OUTPUT"
+
       # 4. 计算文件大小与 SHA-256
       - name: Compute file metadata
         id: meta
@@ -106,30 +140,38 @@ jobs:
           echo "大小: $SIZE 字节"
           echo "SHA-256: $SHA"
 
-      # 5. 把直链登记到 Cloudflare Worker（版本化 KV，写新删旧）
-      - name: Register link with Worker
+      # 5. 把两种直链登记到 Cloudflare Worker（版本化 KV，写新删旧）
+      - name: Register links with Worker
         env:
           NOTICE_PASSWORD: ${{ secrets.NOTICE_PASSWORD }}
         run: |
           set -euo pipefail
           API="https://jm-api.xinsis.com/api/apk/upload"
           VERSION="${{ steps.release.outputs.version }}"
-          FILE_URL="${{ steps.upload.outputs.url }}"
+          ANONCAT_URL="${{ steps.upload.outputs.url }}"
+          FTU_URL="${{ steps.upload_ftu.outputs.url }}"
 
           # 令牌 = SHA-256("<密码>:<UTC 小时数>")，与 Worker 的校验逻辑一致
           PASSWORD="${NOTICE_PASSWORD:-cary2026}"
           HOUR=$(( $(date +%s) / 3600 ))
           TOKEN=$(printf '%s' "${PASSWORD}:${HOUR}" | sha256sum | awk '{print $1}')
 
-          # 用 jq 生成 JSON，避免 URL 中的特殊字符破坏格式
+          # 用 jq 生成 JSON：两种直链放进 links，并指定主直链
+          # 主直链默认用 anon.cat（更持久）；filetourl.org 免费链接 30 天后过期，
+          # 作为备用来源，可通过 ?source=filetourl 取用。
+          # 若想改成 filetourl 为主，把下面 primary 的 "anoncat" 换成 "filetourl" 即可。
           PAYLOAD=$(jq -n \
             --arg version "$VERSION" \
-            --arg url "$FILE_URL" \
+            --arg anoncat "$ANONCAT_URL" \
+            --arg filetourl "$FTU_URL" \
             --arg filename "JM-arm64-release.apk.zip" \
             --argjson size "${{ steps.meta.outputs.size }}" \
             --arg sha256 "${{ steps.meta.outputs.sha256 }}" \
             --arg source "github-release" \
-            '{version:$version, url:$url, filename:$filename, size:$size, sha256:$sha256, source:$source}')
+            '{version:$version,
+              links:(({anoncat:$anoncat} + (if $filetourl != "" then {filetourl:$filetourl} else {} end))),
+              primary:"anoncat",
+              filename:$filename, size:$size, sha256:$sha256, source:$source}')
 
           echo "上报内容: $PAYLOAD"
 
@@ -153,7 +195,7 @@ jobs:
             exit 1
           fi
 
-      # 6. 校验：按版本号取回直链
+      # 6. 校验：按版本号取回直链（含两种来源）
       - name: Verify
         run: |
           set -euo pipefail
