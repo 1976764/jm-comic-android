@@ -83,6 +83,8 @@ class Lanzou:
     username: str
     password: str
     timeout: int = 15
+    upload_timeout: int = 600   # 上传大文件的读写超时（秒）
+    upload_retries: int = 3     # 上传遇到网络错误时的重试次数
     cookies: Dict[str, str] = field(default_factory=dict)
 
     def __post_init__(self):
@@ -205,8 +207,23 @@ class Lanzou:
         form_data = {"task": "1", "vie": "2", "ve": "2", "folder_id": folder_id}
         files = {"upload_file": (fname, data, "application/octet-stream")}
 
-        r = self._request("POST", f"{UP_URL}/html5up.php",
-                          data=form_data, files=files)
+        # 上传大文件需要很长的读写超时；连接/写超时在服务端入库前发生，可安全重试
+        r = None
+        for attempt in range(self.upload_retries):
+            try:
+                r = self._request(
+                    "POST", f"{UP_URL}/html5up.php",
+                    data=form_data, files=files,
+                    timeout=(self.timeout, self.upload_timeout),
+                )
+                break
+            except LanzouError as e:
+                is_net = "请求失败" in str(e)
+                if not is_net or attempt == self.upload_retries - 1:
+                    raise
+                print(f"上传网络错误，重试 {attempt + 1}/{self.upload_retries}: {e}")
+        if r is None:
+            raise LanzouError("上传失败（网络重试均失败）")
         text = r.text
         try:
             resp = json.loads(text)
