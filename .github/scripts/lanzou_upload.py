@@ -89,6 +89,18 @@ class Lanzou:
         self.s = requests.Session()
         self.s.headers.update({"User-Agent": UA})
         self.uid: Optional[str] = None
+        self.vei: Optional[str] = None  # 页面级签名，随会话变化，需从控制台页刮取
+
+    def _get_vei(self) -> str:
+        """从控制台页刮取 vei 签名（task=5/47 都要求它）"""
+        if self.vei:
+            return self.vei
+        p = self._request(
+            "GET", f"{UP_URL}/mydisk.php?item=files&action=index&u={self.uid}").text
+        m = re.search(r"['\"]vei['\"]\s*:\s*['\"]([^'\"]+)['\"]", p)
+        if m:
+            self.vei = m.group(1)
+        return self.vei or "VFBeXABSDABXBFJWAVs="
 
     def _request(self, method: str, url: str, *, data=None, files=None,
                  headers=None, timeout: Optional[int] = None) -> requests.Response:
@@ -239,26 +251,41 @@ class Lanzou:
 
         注意：list_files 只返回"文件"；文件夹必须用本方法单独列举。
         """
-        params = {"task": "47", "folder_id": str(parent_id), "pg": str(page)}
+        params = {"task": "47", "folder_id": str(parent_id), "pg": str(page),
+                  "vei": self._get_vei()}
         r = self._request(
             "POST", f"{UP_URL}/doupload.php",
             data=params,
-            headers={"X-Requested-With": "XMLHttpRequest",
-                     "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"},
+            headers={
+                "X-Requested-With": "XMLHttpRequest",
+                "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+                "Origin": UP_URL,
+                "Referer": f"{UP_URL}/mydisk.php?item=files&action=index&u={self.uid}",
+            },
         )
         j = r.json()
-        if j.get("zt") != "1" and j.get("zt") != 1:
+        # 空文件夹列表时服务端返回 zt=2（非错误），按空列表处理
+        if j.get("zt") not in ("1", "2", 1, 2):
             raise LanzouError(f"获取文件夹列表失败: {j}")
         return j.get("text") or []
 
     def list_files(self, folder_id: str = "-1", page: int = 1) -> List[dict]:
         """列举文件夹下文件（task=5），返回每条含 id / f_id / is_newd / name / onof"""
-        params = {  # vei 为页面级签名（随会话变化，缺失时部分接口拒绝）
-            "task": "5", "folder_id": folder_id, "pg": page, "vei": "VFBeXABSDABXBFJWAVs=",
+        params = {  # vei 为页面级签名，实时从控制台页刮取
+            "task": "5", "folder_id": folder_id, "pg": page,
+            "vei": self._get_vei(),
         }
-        r = self._request("POST", f"{UP_URL}/doupload.php?uid={self.uid}", data=params)
+        r = self._request(
+            "POST", f"{UP_URL}/doupload.php?uid={self.uid}", data=params,
+            headers={
+                "X-Requested-With": "XMLHttpRequest",
+                "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+                "Origin": UP_URL,
+                "Referer": f"{UP_URL}/mydisk.php?item=files&action=index&u={self.uid}",
+            },
+        )
         j = r.json()
-        if j.get("zt") != "1" and j.get("zt") != 1:
+        if j.get("zt") not in ("1", "2", 1, 2):
             raise LanzouError(f"获取文件列表失败: {j}")
         return j.get("text") or []
 

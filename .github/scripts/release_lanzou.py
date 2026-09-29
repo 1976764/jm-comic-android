@@ -88,10 +88,13 @@ def main():
 
     # 1) 建（或复用）版本文件夹
     folder_id = None
-    for f in lz.list_folders("-1"):
-        if f.get("name") == version:
-            folder_id = f.get("fol_id")
-            break
+    try:
+        for f in lz.list_folders("-1"):
+            if f.get("name") == version:
+                folder_id = f.get("fol_id")
+                break
+    except LanzouError as e:
+        print(f"警告: 文件夹列表拉取失败，改为直接创建：{e}")
     if folder_id:
         print(f"复用版本文件夹 {version} -> id={folder_id}")
     else:
@@ -107,10 +110,15 @@ def main():
 
     # 3) 只保留 keep 个版本文件夹，删除其余“版本命名”的文件夹
     #    （仅删符合 v\d(.\d)* 命名的，避免误删无关文件夹）
-    version_folders = [
-        f for f in lz.list_folders("-1")
-        if VERSION_RE.match((f.get("name") or "").strip())
-    ]
+    #    若列表接口失败则跳过清理，保证上传不中断
+    try:
+        version_folders = [
+            f for f in lz.list_folders("-1")
+            if VERSION_RE.match((f.get("name") or "").strip())
+        ]
+    except LanzouError as e:
+        print(f"警告: 无法拉取文件夹列表，跳过旧版本清理：{e}")
+        version_folders = []
     version_folders.sort(key=lambda f: ver_key(f["name"]), reverse=True)
     current_fid = str(folder_id)
     others = [f for f in version_folders if str(f.get("fol_id")) != current_fid]
