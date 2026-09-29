@@ -1,0 +1,54 @@
+name: 蓝奏云 Release 上传
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  upload-lanzou:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v4
+
+      - name: 安装 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 安装依赖
+        run: python -m pip install --upgrade pip requests
+
+      - name: 提取版本号
+        id: ver
+        run: echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+
+      - name: 下载发布资产
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.ver.outputs.tag }}
+        run: gh release download "$TAG" --pattern "JM-arm64-release.apk" --dir .
+
+      - name: 上传蓝奏云并保留 3 个版本
+        env:
+          LANZOU_USERNAME: ${{ secrets.LANZOU_USERNAME }}
+          LANZOU_PASSWORD: ${{ secrets.LANZOU_PASSWORD }}
+          NOTICE_PASSWORD: ${{ secrets.NOTICE_PASSWORD }}
+          API_BASE: ${{ vars.API_BASE }}
+          RELEASE_TAG: ${{ steps.ver.outputs.tag }}
+          ASSET_NAME: JM-arm64-release.apk
+          KEEP_VERSIONS: "3"
+        run: python .github/scripts/release_lanzou.py
+
+      - name: 上传日志（仅供参考）
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lanzou-upload-log
+          path: |
+            *.apk
+            *.log
+          if-no-files-found: ignore
+          retention-days: 7
