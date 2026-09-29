@@ -234,6 +234,23 @@ class Lanzou:
 
     # ---------------- 辅助：从指定文件夹拿已有文件的分享 ID（可选） ----------------
 
+    def list_folders(self, parent_id: str = "-1", page: int = 1) -> List[dict]:
+        """列举某文件夹下的子文件夹（task=47），返回每条含 name/fol_id/onof 等
+
+        注意：list_files 只返回"文件"；文件夹必须用本方法单独列举。
+        """
+        params = {"task": "47", "folder_id": str(parent_id), "pg": str(page)}
+        r = self._request(
+            "POST", f"{UP_URL}/doupload.php",
+            data=params,
+            headers={"X-Requested-With": "XMLHttpRequest",
+                     "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"},
+        )
+        j = r.json()
+        if j.get("zt") != "1" and j.get("zt") != 1:
+            raise LanzouError(f"获取文件夹列表失败: {j}")
+        return j.get("text") or []
+
     def list_files(self, folder_id: str = "-1", page: int = 1) -> List[dict]:
         """列举文件夹下文件（task=5），返回每条含 id / f_id / is_newd / name / onof"""
         params = {  # vei 为页面级签名（随会话变化，缺失时部分接口拒绝）
