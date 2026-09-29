@@ -4,21 +4,6 @@ on:
   release:
     types: [published]
   workflow_dispatch:
-    inputs:
-      tag:
-        description: "要上传的 Release tag（留空则用最新 release）"
-        required: false
-        type: string
-      asset:
-        description: "发布的资产文件名"
-        required: false
-        default: "JM-arm64-release.apk"
-        type: string
-      keep_versions:
-        description: "保留的版本文件夹数量"
-        required: false
-        default: "3"
-        type: string
 
 jobs:
   upload-lanzou:
@@ -44,8 +29,6 @@ jobs:
         run: |
           if [[ "${{ github.event_name }}" == "release" ]]; then
             echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
-          elif [ -n "${{ inputs.tag }}" ]; then
-            echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
           else
             tag=$(gh release list --limit 1 --json tagName --jq '.[0].tagName')
             echo "tag=$tag" >> "$GITHUB_OUTPUT"
@@ -55,8 +38,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.ver.outputs.tag }}
-          ASSET: ${{ inputs.asset || 'JM-arm64-release.apk' }}
-        run: gh release download "$TAG" --pattern "$ASSET" --dir .
+        run: gh release download "$TAG" --pattern "JM-arm64-release.apk" --dir .
 
       - name: 上传蓝奏云并保留 3 个版本
         env:
@@ -65,8 +47,8 @@ jobs:
           NOTICE_PASSWORD: ${{ secrets.NOTICE_PASSWORD }}
           API_BASE: ${{ vars.API_BASE }}
           RELEASE_TAG: ${{ steps.ver.outputs.tag }}
-          ASSET_NAME: ${{ inputs.asset || 'JM-arm64-release.apk' }}
-          KEEP_VERSIONS: ${{ inputs.keep_versions || '3' }}
+          ASSET_NAME: JM-arm64-release.apk
+          KEEP_VERSIONS: "3"
         run: python .github/scripts/release_lanzou.py
 
       - name: 上传日志（仅供参考）
