@@ -31,11 +31,14 @@ import argparse
 import json
 import os
 import re
+import socket
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional
 
 import requests
+from requests.adapters import HTTPAdapter
 
 ACC_URL = "https://accounts.woozooo.com"
 UP_URL = "https://up.woozooo.com"
@@ -63,6 +66,26 @@ def solve_acw(arg1: str) -> str:
     return ''.join(out)
 
 
+# 对慢速/不稳的网络（如境外→国内上传）调优 TCP：加大发送缓冲、关闭 Nagle、
+# 开启 keepalive，避免大文件在写入阶段因发送缓冲满而触发 socket 写超时。
+_UPLOAD_SOCKET_OPTS = [
+    (socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1),
+    (socket.IPPROTO_TCP, socket.TCP_NODELAY, 1),
+    (socket.SOL_SOCKET, socket.SO_SNDBUF, 1024 * 1024),
+    (socket.SOL_SOCKET, socket.SO_RCVBUF, 1024 * 1024),
+]
+
+
+class _TunedAdapter(HTTPAdapter):
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("max_retries", 1)
+        super().__init__(*args, **kwargs)
+
+    def init_poolmanager(self, *args, **kwargs):
+        kwargs["socket_options"] = _UPLOAD_SOCKET_OPTS
+        super().init_poolmanager(*args, **kwargs)
+
+
 class LanzouError(RuntimeError):
     pass
 
@@ -83,13 +106,15 @@ class Lanzou:
     username: str
     password: str
     timeout: int = 15
-    upload_timeout: int = 600   # 上传大文件的读写超时（秒）
-    upload_retries: int = 3     # 上传遇到网络错误时的重试次数
+    upload_timeout: int = 3600  # 上传大文件的读写超时（秒）：境外→国内容易高延迟，需放得很宽
+    upload_retries: int = 5     # 上传遇到网络错误时的重试次数
     cookies: Dict[str, str] = field(default_factory=dict)
 
     def __post_init__(self):
         self.s = requests.Session()
         self.s.headers.update({"User-Agent": UA})
+        self.s.mount("https://", _TunedAdapter())  # 调优 TCP，降低大文件写超时概率
+        self.s.mount("http://", _TunedAdapter())
         self.uid: Optional[str] = None
         self.vei: Optional[str] = None  # 页面级签名，随会话变化，需从控制台页刮取
 
@@ -207,21 +232,29 @@ class Lanzou:
         form_data = {"task": "1", "vie": "2", "ve": "2", "folder_id": folder_id}
         files = {"upload_file": (fname, data, "application/octet-stream")}
 
-        # 上传大文件需要很长的读写超时；连接/写超时在服务端入库前发生，可安全重试
+        # 强制新建连接上传，避免复用可能已过期的 keep-alive 连接被 CDN 掐断；
+        # 大文件需要很长的读写超时（标量=连接+读写都用同一个宽限值）；
+        # 网络类错误做退避重试
+        size_mb = len(data) / (1024 * 1024)
+        print(f"开始上传 {fname} ({size_mb:.1f} MB) 至文件夹 {folder_id} ...")
         r = None
         for attempt in range(self.upload_retries):
+            t0 = time.time()
             try:
                 r = self._request(
                     "POST", f"{UP_URL}/html5up.php",
                     data=form_data, files=files,
-                    timeout=(self.timeout, self.upload_timeout),
+                    headers={"Connection": "close"},
+                    timeout=self.upload_timeout,
                 )
                 break
             except LanzouError as e:
                 is_net = "请求失败" in str(e)
                 if not is_net or attempt == self.upload_retries - 1:
                     raise
-                print(f"上传网络错误，重试 {attempt + 1}/{self.upload_retries}: {e}")
+                print(f"上传网络错误，重试 {attempt + 1}/{self.upload_retries}: {e} "
+                      f"（本次耗时 {time.time() - t0:.0f}s）")
+                time.sleep(5 * (attempt + 1))  # 5s/10s/.. 退避，缓解瞬时限流
         if r is None:
             raise LanzouError("上传失败（网络重试均失败）")
         text = r.text
