@@ -532,17 +532,20 @@ class Lanzou:
         """task=22：获取某文件的分享信息（提取码 pwd / 分享域名 is_newd / 分享短码 f_id）
 
         file_id 为该文件在网盘中的数字 ID（上传响应 text[].id）。
+
+        注意必须用 up.woozooo.com 域名：登录/上传得到的 ylogin 等 cookie 只属于
+        up 子域，打到 pc.woozooo.com 会因无 cookie 而返回 zt=9 login not。
         """
         if not self.uid:
             self.uid = self.s.cookies.get("ylogin") or self.s.cookies.get("ylogins")
         r = self._request(
-            "POST", "https://pc.woozooo.com/doupload.php",
+            "POST", f"{UP_URL}/doupload.php",
             data={"task": "22", "file_id": str(file_id)},
             headers={
                 "X-Requested-With": "XMLHttpRequest",
                 "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-                "Origin": "https://pc.woozooo.com",
-                "Referer": f"https://pc.woozooo.com/mydisk.php?item=files&action=index&u={self.uid}",
+                "Origin": UP_URL,
+                "Referer": f"{UP_URL}/mydisk.php?item=files&action=index&u={self.uid}",
             },
         )
         try:
