@@ -116,21 +116,88 @@ def _parse_address_line(line: str, default_scheme: str = "http"):
             "working": True, "latency": 0}
 
 
+H_PROXY_SOURCE = "https://hproxy.com/api/proxy-list?format=json&country=CN&protocol=http"
+
+
+def _fetch_hproxy_records(timeout: int = 30) -> list:
+    """从 hproxy.com 拉取（JSON；记录字段兼容 ip/host + port / proxy / addr 等）"""
+    try:
+        r = requests.get(H_PROXY_SOURCE, headers={"User-Agent": UA}, timeout=timeout)
+    except Exception as e:
+        print(f"[proxy] hproxy 拉取失败: {e}")
+        return []
+    if r.status_code != 200 or not r.text.strip():
+        print(f"[proxy] hproxy 拉取失败 HTTP {r.status_code}")
+        return []
+    try:
+        data = r.json()
+    except ValueError:
+        print("[proxy] hproxy 响应非 JSON，忽略")
+        return []
+
+    items = data
+    if isinstance(data, dict):
+        items = (data.get("data") or data.get("proxies")
+                 or data.get("list") or data.get("proxy_list") or [])
+
+    out = []
+    for it in items:
+        if isinstance(it, str):
+            p = _parse_address_line(it)
+        elif isinstance(it, dict):
+            addr = it.get("proxy") or it.get("address")
+            if addr and ":" in str(addr):
+                p = _parse_address_line(str(addr))
+            else:
+                ip = it.get("ip") or it.get("host") or it.get("hostname")
+                port = it.get("port") or it.get("proxy_port")
+                proto = str(it.get("protocol") or it.get("scheme")
+                            or it.get("type") or "").lower()
+                if not ip:
+                    continue
+                try:
+                    port = int(port)
+                except (TypeError, ValueError):
+                    continue
+                p = {"scheme": proto if proto in ("http", "https") else "http",
+                     "ip": str(ip).strip(), "port": port,
+                     "working": True, "latency": 0}
+        else:
+            continue
+        if p and p.get("ip") and p.get("port"):
+            out.append(p)
+    return out
+
+
 def _fetch_proxy_records(timeout: int = 30) -> list:
-    """从 serviss.it 拉取（text/plain，每行一个 http://ip:port，已在请求里按 CN 过滤）"""
+    """聚合多个免费代理源（serviss.it + hproxy.com），去重后返回候选 CN http 代理"""
+    out: List[dict] = []
+    seen = set()
+
+    def _add(p):
+        if not p or not p.get("ip") or not p.get("port"):
+            return
+        key = (p.get("scheme"), p.get("ip"), p.get("port"))
+        if key in seen:
+            return
+        seen.add(key)
+        out.append(p)
+
+    # 源 1：serviss.it（text/plain，每行一个 http://ip:port，已在请求里按 CN 过滤）
     try:
         r = requests.get(PROXY_SOURCE, headers={"User-Agent": UA}, timeout=timeout)
+        if r.status_code == 200:
+            for line in r.text.splitlines():
+                _add(_parse_address_line(line))
+        else:
+            print(f"[proxy] serviss 拉取失败 HTTP {r.status_code}")
     except Exception as e:
-        print(f"[proxy] 拉取代理列表失败: {e}")
-        return []
-    if r.status_code != 200:
-        print(f"[proxy] 拉取代理列表失败 HTTP {r.status_code}: {r.text[:200]}")
-        return []
-    out = []
-    for line in r.text.splitlines():
-        p = _parse_address_line(line)
-        if p:
-            out.append(p)
+        print(f"[proxy] serviss 拉取失败: {e}")
+
+    # 源 2：hproxy.com（json）
+    for p in _fetch_hproxy_records(timeout):
+        _add(p)
+
     if not out:
         print("[proxy] 列表为空（代理源当前无可用 CN 代理）")
     return out
@@ -408,26 +475,58 @@ class Lanzou:
             raise LanzouError("上传成功但未返回分享信息")
 
         first = items[0]
-        domain = str(first.get("is_newd", "")).rstrip("/")
-        fid = str(first.get("f_id") or first.get("id") or "")
         file_id = str(first.get("id") or "")
         onof = str(first.get("onof", "0"))
 
-        # 提取码：优先响应顶层 info.pwd（真实口令），其次 text[] 里的 pwd/code 字段，
-        # 都没有时按蓝奏云惯例 onof=1 以 f_id 作为访问码，否则视为无提取码。
-        info = resp.get("info") or {}
-        info_pwd = info.get("pwd") if isinstance(info, dict) else None
-        raw_pwd = str(info_pwd or first.get("pwd") or first.get("code") or "").strip().strip("/")
-        if raw_pwd and "/" in raw_pwd:
-            raw_pwd = raw_pwd.rsplit("/", 1)[-1]
-        pwd = raw_pwd or (fid if onof == "1" else "")
+        # 上传接口本身不返回提取码；用 file_id 调 task=22 取回真实分享信息
+        # （pwd=提取码 / is_newd=分享域名 / f_id=分享短码）。这样拿到的是蓝奏云
+        # 为准的口令（例如 7cpo），而不是把 f_id 误当提取码。
+        try:
+            share_info = self.get_file_share_info(file_id)
+        except LanzouError as e:
+            print(f"[resolve] 获取分享信息失败，回退上传响应字段: {e}")
+            share_info = {}
+
+        domain = share_info.get("is_newd") or str(first.get("is_newd", "")).rstrip("/")
+        fid = share_info.get("f_id") or str(first.get("f_id") or first.get("id") or "")
+        # 提取码以 task=22 返回的真实口令为准；回退时按蓝奏云惯例 onof=1 用 f_id
+        pwd = share_info.get("pwd") or (fid if onof == "1" else "")
 
         url = self.build_share_url(domain, fid)
-        print(f"[resolve] share fields={sorted(str(k) for k in first.keys())} "
-              f"info_keys={sorted(str(k) for k in info.keys()) if isinstance(info, dict) else info!r} "
-              f"onof={onof} f_id={fid} 提取码={pwd!r}")
+        print(f"[resolve] domain={domain} f_id={fid} onof={onof} 提取码={pwd!r}")
         return Share(url=url, pwd=pwd, f_id=fid, name=first.get("name", fname),
                      id=file_id, onof=onof)
+
+    def get_file_share_info(self, file_id: str) -> Dict[str, str]:
+        """task=22：获取某文件的分享信息（提取码 pwd / 分享域名 is_newd / 分享短码 f_id）
+
+        file_id 为该文件在网盘中的数字 ID（上传响应 text[].id）。
+        """
+        if not self.uid:
+            self.uid = self.s.cookies.get("ylogin") or self.s.cookies.get("ylogins")
+        r = self._request(
+            "POST", "https://pc.woozooo.com/doupload.php",
+            data={"task": "22", "file_id": str(file_id)},
+            headers={
+                "X-Requested-With": "XMLHttpRequest",
+                "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+                "Origin": "https://pc.woozooo.com",
+                "Referer": f"https://pc.woozooo.com/mydisk.php?item=files&action=index&u={self.uid}",
+            },
+        )
+        try:
+            j = r.json()
+        except json.JSONDecodeError:
+            raise LanzouError(f"获取分享信息响应无法解析: {r.text[:200]}")
+        if j.get("zt") != 1:
+            raise LanzouError(f"获取分享信息失败 zt={j.get('zt')}: {j}")
+        info = j.get("info") or {}
+        return {
+            "pwd": str(info.get("pwd") or ""),
+            "f_id": str(info.get("f_id") or ""),
+            "is_newd": str(info.get("is_newd") or "").rstrip("/"),
+            "onof": str(info.get("onof") or "0"),
+        }
 
     @staticmethod
     def build_share_url(domain: str, fid: str) -> str:

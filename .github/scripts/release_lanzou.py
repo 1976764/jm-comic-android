@@ -58,6 +58,8 @@ def post_lanzou_info(api_base: str, note_pwd: str, version: str,
 
 
 def main():
+    import time as _t
+
     tag = os.environ.get("RELEASE_TAG", "")
     if not tag and len(sys.argv) > 1:
         tag = sys.argv[1]
@@ -80,8 +82,12 @@ def main():
         raise SystemExit(f"未找到资产文件: {asset}")
     version = norm_version(tag)
 
+    # 各阶段耗时统计
+    marks: list = [["整体起点", _t.perf_counter()]]
+
     lz = Lanzou(username, password)
     lz.login()
+    marks.append(["代理获取+登录", _t.perf_counter()])
     print(f"登录成功 uid = {lz.uid}，版本 = {version}")
 
     # 1) 直接上传到根目录；上传前先删除根目录下已有的同名 APK，避免堆放多份
@@ -93,6 +99,7 @@ def main():
                 break
     except LanzouError as e:
         print(f"警告: 拉取根目录文件失败，跳过旧文件清理：{e}")
+    marks.append(["拉取列表+清理旧文件", _t.perf_counter()])
 
     # 2) 上传 APK 到根目录，拿到分享外链 + 提取码
     share = lz.upload_file(asset, folder_id="-1")
@@ -100,10 +107,17 @@ def main():
     lanzou_code = share.pwd or ""
     print("外链   :", lanzou_url)
     print("提取码 :", lanzou_code or "(无)")
+    marks.append(["上传文件+获取提取码", _t.perf_counter()])
 
     # 3) 上报蓝奏云链接与提取码
     post_lanzou_info(api_base, note_pwd, version, lanzou_url, lanzou_code)
+    marks.append(["信息上报", _t.perf_counter()])
     print("完成")
+
+    print("\n======== 各步骤耗时 ========")
+    for i in range(1, len(marks)):
+        print(f"  {marks[i][0]:<18}{marks[i][1] - marks[i - 1][1]:>9.2f} s")
+    print(f"  {'总耗时':<18}{marks[-1][1] - marks[0][1]:>9.2f} s")
 
 
 if __name__ == "__main__":
