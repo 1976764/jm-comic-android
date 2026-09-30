@@ -3,10 +3,10 @@ import json
 import os
 import sys
 import time
-import urllib.error
-import urllib.request
 
-from lanzou_upload import Lanzou, LanzouError
+import requests
+
+from lanzou_upload import Lanzou, LanzouError, UA
 
 
 def norm_version(tag: str) -> str:
@@ -24,27 +24,34 @@ def compute_token(note_pwd: str, hour: int) -> str:
 
 def post_lanzou_info(api_base: str, note_pwd: str, version: str,
                      lanzou_url: str, lanzou_code: str):
-    """上报蓝奏云信息；token 每次调用前重算，失败时按 当前/前一/后一小时 重试"""
+    """上报蓝奏云信息；token 每次调用前重算，失败时按 当前/前一/后一小时 重试。
+
+    用 requests + 浏览器 UA 发送，避免 urllib 默认 UA 被前端 Cloudflare 以
+    error 1010 封禁。
+    """
     payload = {"version": version, "lanzou_url": lanzou_url, "lanzou_code": lanzou_code}
+    url = api_base.rstrip("/") + "/api/lanzou/upload"
     hour = int(time.time() * 1000) // 3600000
     for delta in (0, -1, 1):  # 服务端接受当前、前一、后一小时
         token = compute_token(note_pwd, hour + delta)
-        req = urllib.request.Request(
-            api_base.rstrip("/") + "/api/lanzou/upload",
-            data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json", "X-Notice-Token": token},
-            method="POST",
-        )
         try:
-            with urllib.request.urlopen(req, timeout=30) as resp:
-                body = resp.read().decode("utf-8")
-                data = json.loads(body)
-                if data.get("success"):
-                    print("lanzou 信息上报成功:", json.dumps(data, ensure_ascii=False))
-                    return data
-                print(f"服务端 success=false (hour+{delta}): {body[:300]}")
-        except urllib.error.HTTPError as e:
-            print(f"HTTP {e.code} (hour+{delta}): {e.read()[:200]}")
+            r = requests.post(
+                url, json=payload, timeout=30,
+                headers={
+                    "Content-Type": "application/json",
+                    "X-Notice-Token": token,
+                    "User-Agent": UA,
+                    "Accept": "application/json",
+                },
+            )
+            if r.status_code != 200:
+                print(f"HTTP {r.status_code} (hour+{delta}): {r.text[:200]}")
+                continue
+            data = r.json()
+            if data.get("success"):
+                print("lanzou 信息上报成功:", json.dumps(data, ensure_ascii=False))
+                return data
+            print(f"服务端 success=false (hour+{delta}): {r.text[:300]}")
         except Exception as e:
             print(f"上报出错 (hour+{delta}): {e}")
     raise LanzouError("lanzou 信息上报失败（三个小时窗口均未成功）")

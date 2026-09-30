@@ -87,68 +87,53 @@ class _TunedAdapter(HTTPAdapter):
         super().init_poolmanager(*args, **kwargs)
 
 
-# ---------------- 免费代理（用于把大文件从境外→国内绕过卡顿） ----------------
+# ---------------- 免费代理（全程走中国代理，仅上报例外） ----------------
 
-PROXY_SOURCE = "https://proxy5.net/api/free-proxies.php?v=994827"
+PROXY_SOURCE = ("https://proxy.serviss.it/api/v1/proxy"
+                "?anonymity=elite,anonymous,exposed&country=CN&protocol=http"
+                "&capabilities=https,ipv4&max_latency=250&format=address")
 _PROXY_TEST_TARGET = "https://up.woozooo.com/mydisk.php?item=files&action=index"
 
 
-def _socks_ok() -> bool:
-    """requests 走 socks 需要 PySocks（requests[socks]），未安装时只支持 http 代理"""
+def _parse_address_line(line: str, default_scheme: str = "http"):
+    """把一行代理地址解析成 dict；支持 http://ip:port 或裸 ip:port"""
+    line = (line or "").strip()
+    if not line:
+        return None
+    m = re.match(r"^(https?|socks5h)://(.+)$", line, re.I)
+    scheme = default_scheme
+    if m:
+        scheme = m.group(1).lower()
+        line = m.group(2)
+    if ":" not in line:
+        return None
+    ip, port = line.rsplit(":", 1)
     try:
-        import socks  # noqa: F401
-        return True
-    except Exception:
-        return False
+        port = int(port)
+    except ValueError:
+        return None
+    return {"scheme": scheme, "ip": ip.strip(), "port": port,
+            "working": True, "latency": 0}
 
 
-def _fetch_proxy_records(timeout: int = 25) -> list:
-    """拉取免费代理列表；proxy5 前面有 Cloudflare 反爬，拿不到 JSON 时返回空列表"""
+def _fetch_proxy_records(timeout: int = 30) -> list:
+    """从 serviss.it 拉取（text/plain，每行一个 http://ip:port，已在请求里按 CN 过滤）"""
     try:
-        r = requests.get(
-            PROXY_SOURCE,
-            headers={"User-Agent": UA,
-                     "Accept": "application/json,text/plain,*/*"},
-            timeout=timeout,
-        )
-        j = r.json()
+        r = requests.get(PROXY_SOURCE, headers={"User-Agent": UA}, timeout=timeout)
     except Exception as e:
-        print(f"[proxy] 拉取代理列表失败（多因 Cloudflare 反爬拦截）: {e}")
+        print(f"[proxy] 拉取代理列表失败: {e}")
         return []
-    if isinstance(j, list):
-        return j
-    return j.get("results") or []
-
-
-def _filter_cn_proxies(records: list, top: int = 15) -> list:
-    """只保留中国大陆代理，协议优先 HTTP/HTTPS，其次 SOCKS5（需 PySocks）"""
+    if r.status_code != 200:
+        print(f"[proxy] 拉取代理列表失败 HTTP {r.status_code}: {r.text[:200]}")
+        return []
     out = []
-    for rec in records:
-        if not isinstance(rec, dict):
-            continue
-        cc = (rec.get("country_code") or "").upper()
-        ctry = (rec.get("country") or "").lower()
-        if cc != "CN" and "china" not in ctry and "中国" not in ctry:
-            continue
-        ip = rec.get("ip_address")
-        port = rec.get("port")
-        if not ip or not port:
-            continue
-        protos = [str(p).upper() for p in (rec.get("protocols") or [])]
-        scheme = "http"          # HTTP 与 HTTPS 都用 http:// 方式配给 requests（CONNECT 隧道）
-        if not any(p in ("HTTP", "HTTPS") for p in protos):
-            if "SOCKS5" in protos and _socks_ok():
-                scheme = "socks5h"
-            else:
-                continue
-        out.append({
-            "scheme": scheme,
-            "ip": ip, "port": int(port),
-            "working": bool(rec.get("is_working")),
-            "latency": rec.get("latency") if isinstance(rec.get("latency"), (int, float)) else 9999,
-        })
-    out.sort(key=lambda p: (0 if p["working"] else 1, p["latency"]))
-    return out[:top]
+    for line in r.text.splitlines():
+        p = _parse_address_line(line)
+        if p:
+            out.append(p)
+    if not out:
+        print("[proxy] 列表为空（代理源当前无可用 CN 代理）")
+    return out
 
 
 def _test_proxy(p: dict, timeout: int = 12) -> bool:
@@ -164,22 +149,13 @@ def _test_proxy(p: dict, timeout: int = 12) -> bool:
 
 
 def _proxies_env_list() -> list:
-    """支持从环境变量 LANZOU_PROXIES 手动喂一组 ip:port（逗号/换行分隔），作为代理来源的兜底"""
+    """支持从环境变量 LANZOU_PROXIES 手动喂一组 ip:port（逗号/换行分隔）"""
     raw = os.environ.get("LANZOU_PROXIES", "")
     out = []
     for chunk in re.split(r"[\s,;]+", raw.strip()):
-        chunk = chunk.strip()
-        m = re.match(r"^(?:http|https|socks5h)://(.+)$", chunk)
-        if m:
-            chunk = m.group(1)
-        if ":" not in chunk:
-            continue
-        ip, port = chunk.rsplit(":", 1)
-        try:
-            out.append({"scheme": "http", "ip": ip.strip(), "port": int(port),
-                        "working": True, "latency": 0})
-        except ValueError:
-            pass
+        p = _parse_address_line(chunk)
+        if p:
+            out.append(p)
     return out
 
 
@@ -205,6 +181,7 @@ class Lanzou:
     timeout: int = 15
     upload_timeout: int = 3600  # 上传大文件的读写超时（秒）：境外→国内容易高延迟，需放得很宽
     upload_retries: int = 5     # 上传遇到网络错误时的重试次数
+    use_proxy: bool = True      # 全程走实测可用的大陆代理（登录/列文件/上传都走；上报需在外部直连）
     cookies: Dict[str, str] = field(default_factory=dict)
 
     def __post_init__(self):
@@ -214,6 +191,7 @@ class Lanzou:
         self.s.mount("http://", _TunedAdapter())
         self.uid: Optional[str] = None
         self.vei: Optional[str] = None  # 页面级签名，随会话变化，需从控制台页刮取
+        self._proxy_enabled: bool = False
 
     def _get_vei(self) -> str:
         """从控制台页刮取 vei 签名（task=5/47 都要求它）"""
@@ -241,53 +219,56 @@ class Lanzou:
         except requests.exceptions.RequestException as e:
             raise LanzouError(f"请求失败 {method} {url}: {e}") from e
 
-    def _pick_upload_proxies(self, limit: int = 5, max_tested: int = 30,
-                             concurrency: int = 15, test_timeout: int = 8) -> List[Dict[str, str]]:
-        """并发挑选并实测可用的大陆代理，返回可直接传给 requests.proxies 的列表。
-
-        优先级：环境变量 LANZOU_PROXIES > proxy5.net 大陆代理列表。
-        所有候选都会真实连通性实测；为节省时间采用并发测试，
-        最多测试 max_tested 个，一旦凑齐 limit 个可用立即返回。
-        """
+    def _pick_proxy_candidates(self) -> list:
+        """获取候选代理：优先环境变量 LANZOU_PROXIES，否则从代理源抓取"""
         candidates = _proxies_env_list()
         if candidates:
-            print(f"[proxy] 使用环境变量提供的 {len(candidates)} 个代理（并发实测中…）")
+            print(f"[proxy] 使用环境变量 LANZOU_PROXIES 提供的 {len(candidates)} 个代理")
         else:
-            candidates = _filter_cn_proxies(_fetch_proxy_records())
+            candidates = _fetch_proxy_records()
             if candidates:
-                print(f"[proxy] 从 proxy5 取到 {len(candidates)} 个大陆代理（并发实测中…）")
+                print(f"[proxy] 从代理源取到 {len(candidates)} 个 CN 代理")
+        return candidates
 
+    def enable_proxy(self, max_tested: int = 30, concurrency: int = 15,
+                     test_timeout: int = 8) -> bool:
+        """并发实测候选代理，选 1 个可达的设为整个会话代理（全程走代理）。
+
+        所有候选先真实连通性实测；用并发加快测试，最多测 max_tested 个，
+        拿到第一个可用即设置并返回 True；全部不可用返回 False（本会话保持直连）。
+        """
+        candidates = self._pick_proxy_candidates()
         if not candidates:
-            print("[proxy] 无可用候选代理，本次直连上传")
-            return []
+            print("[proxy] 无候选代理，本会话直连")
+            return False
 
-        picked: List[Dict[str, str]] = []
-        checked = 0
+        picked = None
         ex = ThreadPoolExecutor(max_workers=concurrency)
         try:
             futures = {}
             for p in candidates:
-                if checked >= max_tested:
+                if len(futures) >= max_tested:
                     break
                 futures[ex.submit(_test_proxy, p, test_timeout)] = p
-                checked += 1
             while futures:
                 done, _ = wait(futures, return_when=FIRST_COMPLETED)
                 for fut in done:
                     p = futures.pop(fut)
                     if fut.result():
-                        url = f"{p['scheme']}://{p['ip']}:{p['port']}"
-                        picked.append({"http": url, "https": url})
-                        print(f"[proxy] 可用 ({len(picked)}): {url}")
-                        if len(picked) >= limit:
-                            print(f"[proxy] 已凑齐 {limit} 个可用代理，停止测试")
-                            return picked
+                        picked = p
+                        break
+                if picked:
+                    break
         finally:
-            # wait=False 立即返回，取消剩余排队测试，避免凑够后仍空等
             ex.shutdown(wait=False, cancel_futures=True)
-        print(f"[proxy] 共实测 {checked} 个，可用 {len(picked)} 个"
-              f"{'，不足，本次直连上传' if not picked else ''}")
-        return picked
+
+        if picked:
+            url = f"{picked['scheme']}://{picked['ip']}:{picked['port']}"
+            self.s.proxies.update({"http": url, "https": url})
+            print(f"[proxy] 本会话启用代理: {url}（已实测可达）")
+            return True
+        print("[proxy] 所有候选代理均不可用，本会话直连")
+        return False
 
     # ---------------- 登录 ----------------
 
@@ -296,6 +277,8 @@ class Lanzou:
 
         :param retries: 命中反爬导致登录响应无法解析时，重新取挑战重试的次数
         """
+        if self.use_proxy and not self._proxy_enabled:
+            self._proxy_enabled = self.enable_proxy()
         for attempt in range(max(1, retries)):
             # 1. 访问登录页，初始化 cookie 并获取 acw_sc__v2 挑战值
             g = self._request(
@@ -379,24 +362,20 @@ class Lanzou:
         form_data = {"task": "1", "vie": "2", "ve": "2", "folder_id": folder_id}
         files = {"upload_file": (fname, data, "application/octet-stream")}
 
-        # 先挑一批实测可用的大陆代理，避免境外→国内直连大文件写超时；
-        # 强制新建连接上传，避免复用可能已过期的 keep-alive 连接被 CDN 掐断；
-        # 大文件需要很长的读写超时（标量=连接+读写都用同一个宽限值）；
-        # 网络类错误做退避重试，且每次尝试轮换一个已验证的代理
+        # 全程走会话代理（已由 login 阶段启用）；强制新建连接上传，避免复用可能
+        # 已过期的 keep-alive 连接被 CDN 掐断；大文件需要很长的读写超时；
+        # 网络类错误做退避重试
         size_mb = len(data) / (1024 * 1024)
         print(f"开始上传 {fname} ({size_mb:.1f} MB) 至文件夹 {folder_id} ...")
-        upload_proxies = self._pick_upload_proxies()
         r = None
         for attempt in range(self.upload_retries):
             t0 = time.time()
             try:
-                proxies = upload_proxies[attempt % len(upload_proxies)] if upload_proxies else None
                 r = self._request(
                     "POST", f"{UP_URL}/html5up.php",
                     data=form_data, files=files,
                     headers={"Connection": "close"},
                     timeout=self.upload_timeout,
-                    proxies=proxies,
                 )
                 break
             except LanzouError as e:
@@ -434,15 +413,18 @@ class Lanzou:
         file_id = str(first.get("id") or "")
         onof = str(first.get("onof", "0"))
 
-        # 提取码：优先响应里的显式 pwd 字段；没有时按蓝奏云惯例，
-        # onof=1（需输入口令访问）以 f_id 作为访问码，否则视为无提取码。
-        raw_pwd = str(first.get("pwd") or first.get("code") or "").strip().strip("/")
+        # 提取码：优先响应顶层 info.pwd（真实口令），其次 text[] 里的 pwd/code 字段，
+        # 都没有时按蓝奏云惯例 onof=1 以 f_id 作为访问码，否则视为无提取码。
+        info = resp.get("info") or {}
+        info_pwd = info.get("pwd") if isinstance(info, dict) else None
+        raw_pwd = str(info_pwd or first.get("pwd") or first.get("code") or "").strip().strip("/")
         if raw_pwd and "/" in raw_pwd:
             raw_pwd = raw_pwd.rsplit("/", 1)[-1]
         pwd = raw_pwd or (fid if onof == "1" else "")
 
         url = self.build_share_url(domain, fid)
         print(f"[resolve] share fields={sorted(str(k) for k in first.keys())} "
+              f"info_keys={sorted(str(k) for k in info.keys()) if isinstance(info, dict) else info!r} "
               f"onof={onof} f_id={fid} 提取码={pwd!r}")
         return Share(url=url, pwd=pwd, f_id=fid, name=first.get("name", fname),
                      id=file_id, onof=onof)
