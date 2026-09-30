@@ -116,7 +116,28 @@ def _parse_address_line(line: str, default_scheme: str = "http"):
             "working": True, "latency": 0}
 
 
+PROXYSCRAPE_SOURCE = ("https://api.proxyscrape.com/v4/free-proxy-list/get"
+                      "?request=display_proxies&proxy_format=protocolipport"
+                      "&format=text&protocol=http&country=cn")
 H_PROXY_SOURCE = "https://hproxy.com/api/proxy-list?format=json&country=CN&protocol=http"
+
+
+def _fetch_text_proxy_source(url: str, label: str, timeout: int = 30) -> list:
+    """从一个返回 text（每行 http://ip:port）的代理源拉取并解析"""
+    try:
+        r = requests.get(url, headers={"User-Agent": UA}, timeout=timeout)
+    except Exception as e:
+        print(f"[proxy] {label} 拉取失败: {e}")
+        return []
+    if r.status_code != 200 or not r.text.strip():
+        print(f"[proxy] {label} 拉取失败 HTTP {r.status_code}")
+        return []
+    out = []
+    for line in r.text.splitlines():
+        p = _parse_address_line(line)
+        if p:
+            out.append(p)
+    return out
 
 
 def _fetch_hproxy_records(timeout: int = 30) -> list:
@@ -170,7 +191,7 @@ def _fetch_hproxy_records(timeout: int = 30) -> list:
 
 
 def _fetch_proxy_records(timeout: int = 30) -> list:
-    """聚合多个免费代理源（serviss.it + hproxy.com），去重后返回候选 CN http 代理"""
+    """聚合多个免费代理源（proxyscrape + serviss.it + hproxy.com），去重后返回候选 CN http 代理"""
     out: List[dict] = []
     seen = set()
 
@@ -183,18 +204,15 @@ def _fetch_proxy_records(timeout: int = 30) -> list:
         seen.add(key)
         out.append(p)
 
-    # 源 1：serviss.it（text/plain，每行一个 http://ip:port，已在请求里按 CN 过滤）
-    try:
-        r = requests.get(PROXY_SOURCE, headers={"User-Agent": UA}, timeout=timeout)
-        if r.status_code == 200:
-            for line in r.text.splitlines():
-                _add(_parse_address_line(line))
-        else:
-            print(f"[proxy] serviss 拉取失败 HTTP {r.status_code}")
-    except Exception as e:
-        print(f"[proxy] serviss 拉取失败: {e}")
+    # 源 1：proxyscrape.com（text/plain，每行 http://ip:port，默认首选源）
+    for p in _fetch_text_proxy_source(PROXYSCRAPE_SOURCE, "proxyscrape", timeout):
+        _add(p)
 
-    # 源 2：hproxy.com（json）
+    # 源 2：serviss.it（text/plain，每行一个 http://ip:port，已在请求里按 CN 过滤）
+    for p in _fetch_text_proxy_source(PROXY_SOURCE, "serviss", timeout):
+        _add(p)
+
+    # 源 3：hproxy.com（json）
     for p in _fetch_hproxy_records(timeout):
         _add(p)
 
