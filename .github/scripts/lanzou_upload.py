@@ -361,7 +361,7 @@ class Lanzou:
             self.s.proxies.update({"http": url, "https": url})
             self._used_proxies.add((picked["scheme"], picked["ip"], picked["port"]))
             print(f"[proxy] 本会话启用代理: {url}（RTT {best_rtt * 1000:.0f} ms，"
-                  f"共 {len(results)} 个可用）")
+                  f"共 {len(avail)} 个可用）")
             return True
         print("[proxy] 所有候选代理均不可用，本会话直连")
         return False
