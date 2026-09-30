@@ -259,6 +259,7 @@ class Lanzou:
         self.uid: Optional[str] = None
         self.vei: Optional[str] = None  # 页面级签名，随会话变化，需从控制台页刮取
         self._proxy_enabled: bool = False
+        self._used_proxies: set = set()  # 已用过的代理，上传失败轮换时跳过
 
     def _get_vei(self) -> str:
         """从控制台页刮取 vei 签名（task=5/47 都要求它）"""
@@ -305,8 +306,12 @@ class Lanzou:
         拿到第一个可用即设置并返回 True；全部不可用返回 False（本会话保持直连）。
         """
         candidates = self._pick_proxy_candidates()
+        # 跳过已经用过的代理：大文件上传被某个代理掐断后，轮换时要换新的
+        candidates = [c for c in candidates
+                      if (c.get("scheme"), c.get("ip"), c.get("port"))
+                      not in self._used_proxies]
         if not candidates:
-            print("[proxy] 无候选代理，本会话直连")
+            print("[proxy] 无候选代理（或已用尽，本会话直连）")
             return False
 
         picked = None
@@ -332,6 +337,7 @@ class Lanzou:
         if picked:
             url = f"{picked['scheme']}://{picked['ip']}:{picked['port']}"
             self.s.proxies.update({"http": url, "https": url})
+            self._used_proxies.add((picked["scheme"], picked["ip"], picked["port"]))
             print(f"[proxy] 本会话启用代理: {url}（已实测可达）")
             return True
         print("[proxy] 所有候选代理均不可用，本会话直连")
@@ -451,6 +457,13 @@ class Lanzou:
                     raise
                 print(f"上传网络错误，重试 {attempt + 1}/{self.upload_retries}: {e} "
                       f"（本次耗时 {time.time() - t0:.0f}s）")
+                # 大文件上传被代理掐断（如 SSLEOFError）时，换一个新代理再试；
+                # 若代理已用尽，enable_proxy 返回 False，下一次重试走直连兜底。
+                if self.use_proxy and self.s.proxies:
+                    self.s.proxies.clear()
+                    self._proxy_enabled = False
+                    print("[proxy] 当前代理上传中断，轮换代理…")
+                    self._proxy_enabled = self.enable_proxy()
                 time.sleep(5 * (attempt + 1))  # 5s/10s/.. 退避，缓解瞬时限流
         if r is None:
             raise LanzouError("上传失败（网络重试均失败）")
