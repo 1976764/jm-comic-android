@@ -33,6 +33,7 @@ import os
 import re
 import socket
 import time
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -240,36 +241,53 @@ class Lanzou:
         except requests.exceptions.RequestException as e:
             raise LanzouError(f"请求失败 {method} {url}: {e}") from e
 
-    def _pick_upload_proxies(self, limit: int = 5) -> List[Dict[str, str]]:
-        """挑选并实测可用的大陆代理，返回可直接传给 requests.proxies 的列表。
+    def _pick_upload_proxies(self, limit: int = 5, max_tested: int = 30,
+                             concurrency: int = 15, test_timeout: int = 8) -> List[Dict[str, str]]:
+        """并发挑选并实测可用的大陆代理，返回可直接传给 requests.proxies 的列表。
 
         优先级：环境变量 LANZOU_PROXIES > proxy5.net 大陆代理列表。
-        所有候选都会先做一次连通性实测；返回的每个元素为 {'http':..,'https':..}。
+        所有候选都会真实连通性实测；为节省时间采用并发测试，
+        最多测试 max_tested 个，一旦凑齐 limit 个可用立即返回。
         """
         candidates = _proxies_env_list()
         if candidates:
-            print(f"[proxy] 使用环境变量提供的 {len(candidates)} 个代理")
+            print(f"[proxy] 使用环境变量提供的 {len(candidates)} 个代理（并发实测中…）")
         else:
             candidates = _filter_cn_proxies(_fetch_proxy_records())
+            if candidates:
+                print(f"[proxy] 从 proxy5 取到 {len(candidates)} 个大陆代理（并发实测中…）")
 
         if not candidates:
             print("[proxy] 无可用候选代理，本次直连上传")
             return []
 
-        ok = []
-        for i, p in enumerate(candidates, 1):
-            if _test_proxy(p):
-                url = f"{p['scheme']}://{p['ip']}:{p['port']}"
-                ok.append({"http": url, "https": url})
-                print(f"[proxy] 候选 {i}/{len(candidates)} 可用: {url}")
-                if len(ok) >= limit:
+        picked: List[Dict[str, str]] = []
+        checked = 0
+        ex = ThreadPoolExecutor(max_workers=concurrency)
+        try:
+            futures = {}
+            for p in candidates:
+                if checked >= max_tested:
                     break
-            else:
-                print(f"[proxy] 候选 {i}/{len(candidates)} 不通: "
-                      f"{p['scheme']}://{p['ip']}:{p['port']}")
-        if not ok:
-            print("[proxy] 所有候选代理均不可用，本次直连上传")
-        return ok
+                futures[ex.submit(_test_proxy, p, test_timeout)] = p
+                checked += 1
+            while futures:
+                done, _ = wait(futures, return_when=FIRST_COMPLETED)
+                for fut in done:
+                    p = futures.pop(fut)
+                    if fut.result():
+                        url = f"{p['scheme']}://{p['ip']}:{p['port']}"
+                        picked.append({"http": url, "https": url})
+                        print(f"[proxy] 可用 ({len(picked)}): {url}")
+                        if len(picked) >= limit:
+                            print(f"[proxy] 已凑齐 {limit} 个可用代理，停止测试")
+                            return picked
+        finally:
+            # wait=False 立即返回，取消剩余排队测试，避免凑够后仍空等
+            ex.shutdown(wait=False, cancel_futures=True)
+        print(f"[proxy] 共实测 {checked} 个，可用 {len(picked)} 个"
+              f"{'，不足，本次直连上传' if not picked else ''}")
+        return picked
 
     # ---------------- 登录 ----------------
 
@@ -411,13 +429,23 @@ class Lanzou:
             raise LanzouError("上传成功但未返回分享信息")
 
         first = items[0]
-        domain = first.get("is_newd", "").rstrip("/")
+        domain = str(first.get("is_newd", "")).rstrip("/")
         fid = str(first.get("f_id") or first.get("id") or "")
         file_id = str(first.get("id") or "")
+        onof = str(first.get("onof", "0"))
+
+        # 提取码：优先响应里的显式 pwd 字段；没有时按蓝奏云惯例，
+        # onof=1（需输入口令访问）以 f_id 作为访问码，否则视为无提取码。
+        raw_pwd = str(first.get("pwd") or first.get("code") or "").strip().strip("/")
+        if raw_pwd and "/" in raw_pwd:
+            raw_pwd = raw_pwd.rsplit("/", 1)[-1]
+        pwd = raw_pwd or (fid if onof == "1" else "")
+
         url = self.build_share_url(domain, fid)
-        return Share(url=url, pwd=fid if first.get("onof") == "1" else "",
-                     f_id=fid, name=first.get("name", fname), id=file_id,
-                     onof=str(first.get("onof", "0")))
+        print(f"[resolve] share fields={sorted(str(k) for k in first.keys())} "
+              f"onof={onof} f_id={fid} 提取码={pwd!r}")
+        return Share(url=url, pwd=pwd, f_id=fid, name=first.get("name", fname),
+                     id=file_id, onof=onof)
 
     @staticmethod
     def build_share_url(domain: str, fid: str) -> str:
