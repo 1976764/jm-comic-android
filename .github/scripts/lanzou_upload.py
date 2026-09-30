@@ -33,7 +33,7 @@ import os
 import re
 import socket
 import time
-from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -221,16 +221,19 @@ def _fetch_proxy_records(timeout: int = 30) -> list:
     return out
 
 
-def _test_proxy(p: dict, timeout: int = 12) -> bool:
-    """通过代理实际请求一次蓝奏云控制台，能返回即视为可用"""
+def _test_proxy(p: dict, timeout: int = 12) -> Optional[float]:
+    """通过代理实际请求一次蓝奏云控制台，能返回视为可用，并返回 RTT（秒）；失败返回 None"""
     url = f"{p['scheme']}://{p['ip']}:{p['port']}"
     proxies = {"http": url, "https": url}
+    t0 = time.time()
     try:
         r = requests.get(_PROXY_TEST_TARGET, proxies=proxies, timeout=timeout,
                          headers={"User-Agent": UA})
-        return 200 <= r.status_code < 500
+        if not (200 <= r.status_code < 500):
+            return None
+        return time.time() - t0
     except Exception:
-        return False
+        return None
 
 
 def _proxies_env_list() -> list:
@@ -316,12 +319,12 @@ class Lanzou:
                 print(f"[proxy] 从代理源取到 {len(candidates)} 个 CN 代理")
         return candidates
 
-    def enable_proxy(self, max_tested: int = 30, concurrency: int = 15,
+    def enable_proxy(self, max_tested: int = 50, concurrency: int = 20,
                      test_timeout: int = 8) -> bool:
-        """并发实测候选代理，选 1 个可达的设为整个会话代理（全程走代理）。
+        """并发实测候选代理，挑 RTT 最快的设为整个会话代理（吞吐优先）。
 
-        所有候选先真实连通性实测；用并发加快测试，最多测 max_tested 个，
-        拿到第一个可用即设置并返回 True；全部不可用返回 False（本会话保持直连）。
+        不是一遇可用就停（否则容易选到上行带宽很小的慢代理），而是并发测一批、
+        收集所有可用代理并取 RTT 最小者；全部不可用返回 False（本会话保持直连）。
         """
         candidates = self._pick_proxy_candidates()
         # 跳过已经用过的代理：大文件上传被某个代理掐断后，轮换时要换新的
@@ -332,7 +335,8 @@ class Lanzou:
             print("[proxy] 无候选代理（或已用尽，本会话直连）")
             return False
 
-        picked = None
+        # 吞吐优先：并发测一批，收集所有可用代理及其 RTT，取最快者作为会话代理
+        results: Dict[dict, float] = {}
         ex = ThreadPoolExecutor(max_workers=concurrency)
         try:
             futures = {}
@@ -340,23 +344,25 @@ class Lanzou:
                 if len(futures) >= max_tested:
                     break
                 futures[ex.submit(_test_proxy, p, test_timeout)] = p
-            while futures:
-                done, _ = wait(futures, return_when=FIRST_COMPLETED)
-                for fut in done:
-                    p = futures.pop(fut)
-                    if fut.result():
-                        picked = p
-                        break
-                if picked:
-                    break
+            for fut in futures:
+                rtt = fut.result()
+                if rtt is not None:
+                    results[futures[fut]] = rtt
         finally:
             ex.shutdown(wait=False, cancel_futures=True)
 
+        if results:
+            picked = min(results, key=results.get)  # RTT 最小 → 链路最快
+            best_rtt = results[picked]
+        else:
+            picked = None
+            best_rtt = None
         if picked:
             url = f"{picked['scheme']}://{picked['ip']}:{picked['port']}"
             self.s.proxies.update({"http": url, "https": url})
             self._used_proxies.add((picked["scheme"], picked["ip"], picked["port"]))
-            print(f"[proxy] 本会话启用代理: {url}（已实测可达）")
+            print(f"[proxy] 本会话启用代理: {url}（RTT {best_rtt * 1000:.0f} ms，"
+                  f"共 {len(results)} 个可用）")
             return True
         print("[proxy] 所有候选代理均不可用，本会话直连")
         return False
