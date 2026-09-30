@@ -336,7 +336,7 @@ class Lanzou:
             return False
 
         # 吞吐优先：并发测一批，收集所有可用代理及其 RTT，取最快者作为会话代理
-        results: Dict[dict, float] = {}
+        avail = []  # (rtt秒, proxy)
         ex = ThreadPoolExecutor(max_workers=concurrency)
         try:
             futures = {}
@@ -347,13 +347,12 @@ class Lanzou:
             for fut in futures:
                 rtt = fut.result()
                 if rtt is not None:
-                    results[futures[fut]] = rtt
+                    avail.append((rtt, futures[fut]))
         finally:
             ex.shutdown(wait=False, cancel_futures=True)
 
-        if results:
-            picked = min(results, key=results.get)  # RTT 最小 → 链路最快
-            best_rtt = results[picked]
+        if avail:
+            best_rtt, picked = min(avail, key=lambda x: x[0])  # RTT 最小 → 链路最快
         else:
             picked = None
             best_rtt = None
